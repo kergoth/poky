@@ -3,6 +3,14 @@ NATIVELSBSTRING = "universal"
 UNINATIVE_LOADER = "${STAGING_DIR_NATIVE}/lib/ld-linux-x86-64.so.2"
 UNINATIVE_ARCHIVE_PATH ?= "${COREBASE}/${BUILD_ARCH}-nativesdk-libc.tar.bz2"
 
+# Needed to ensure that binaries which are built and then immediately run
+# (e.g. conftest for autoconf tests) work properly, as it'll end up linking
+# against the libc.so in the native sysroot, and the mismatch between the host
+# dynamic linker and this libc will break various builds.
+LDFLAGS_append_class-native = " -Wl,--dynamic-linker=${UNINATIVE_LOADER}"
+LDFLAGS_append_class-cross = " -Wl,--dynamic-linker=${UNINATIVE_LOADER}"
+LDFLAGS_append_class-crosssdk = " -Wl,--dynamic-linker=${UNINATIVE_LOADER}"
+
 addhandler uninative_eventhandler
 uninative_eventhandler[eventmask] = "bb.event.BuildStarted"
 
