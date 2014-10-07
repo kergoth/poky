@@ -1,6 +1,7 @@
 NATIVELSBSTRING = "universal"
 
 UNINATIVE_LOADER = "${STAGING_DIR_NATIVE}/lib/ld-linux-x86-64.so.2"
+UNINATIVE_ARCHIVE_PATH ?= "${COREBASE}/${BUILD_ARCH}-nativesdk-libc.tar.bz2"
 
 addhandler uninative_eventhandler
 uninative_eventhandler[eventmask] = "bb.event.BuildStarted"
@@ -9,7 +10,7 @@ python uninative_eventhandler() {
     loader = e.data.getVar("UNINATIVE_LOADER", True)
     if not os.path.exists(loader):
         import subprocess
-        cmd = e.data.expand("mkdir -p ${STAGING_DIR}; cd ${STAGING_DIR}; tar -xjf ${COREBASE}/${BUILD_ARCH}-nativesdk-libc.tar.bz2; ${STAGING_DIR}/relocate_sdk.py ${STAGING_DIR_NATIVE} ${UNINATIVE_LOADER} ${UNINATIVE_LOADER} ${STAGING_BINDIR_NATIVE}/patchelf-uninative")
+        cmd = e.data.expand("mkdir -p ${STAGING_DIR}; cd ${STAGING_DIR}; tar -xjf ${UNINATIVE_ARCHIVE_PATH}; ${STAGING_DIR}/relocate_sdk.py ${STAGING_DIR_NATIVE} ${UNINATIVE_LOADER} ${UNINATIVE_LOADER} ${STAGING_BINDIR_NATIVE}/patchelf-uninative")
         #bb.warn("nativesdk lib extraction: " + cmd)
         subprocess.check_call(cmd, shell=True)
 }
