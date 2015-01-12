@@ -249,7 +249,7 @@ class PythonRecipeHandler(RecipeHandler):
 
         inst_reqs = set()
         if 'Install-requires' in info:
-            inst_reqs |= set(info['Install-requires'])
+            inst_reqs |= set(i.lower() for i in info['Install-requires'])
             if inst_reqs:
                 # Naive attempt to avoid listing things in unmapped deps which
                 # are already in install_requires. Only of any use if the
@@ -258,7 +258,7 @@ class PythonRecipeHandler(RecipeHandler):
 
                 lines_after.append('# WARNING: the following rdepends are from setuptools install_requires. These')
                 lines_after.append('# upstream names may not correspond exactly to bitbake package names.')
-                lines_after.append('RDEPENDS_${{PN}} += "{}"'.format(' '.join(r.lower() for r in sorted(inst_reqs))))
+                lines_after.append('RDEPENDS_${{PN}} += "{}"'.format(' '.join(sorted(inst_reqs))))
 
         if mapped_deps:
             name = info.get('Name')
