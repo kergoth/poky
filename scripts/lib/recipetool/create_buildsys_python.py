@@ -95,9 +95,7 @@ class PythonRecipeHandler(RecipeHandler):
         ('Provides', r' *\([^)]*\)', ''),
         ('Obsoletes', r' *\([^)]*\)', ''),
         ('Install-requires', r'^([^><= ]+).*', r'\1'),
-        ('Install-requires', '^(.*)$', r'python-\1'),
         ('Tests-require', r'^([^><= ]+).*', r'\1'),
-        ('Tests-require', '^(.*)$', r'python-\1'),
     ]
 
     # Operations to adjust non-list variable values based on the list
@@ -266,16 +264,13 @@ class PythonRecipeHandler(RecipeHandler):
 
         inst_reqs = set()
         if 'Install-requires' in info:
-            inst_reqs |= set(i.lower() for i in info['Install-requires'])
+            inst_reqs = info['Install-requires']
             if inst_reqs:
-                # Naive attempt to avoid listing things in unmapped deps which
-                # are already in install_requires. Only of any use if the
-                # python package name matches the project name.
-                unmapped_deps.difference_update(i.replace('python-', '') for i in inst_reqs)
+                unmapped_deps.difference_update(inst_reqs)
 
                 lines_after.append('# WARNING: the following rdepends are from setuptools install_requires. These')
                 lines_after.append('# upstream names may not correspond exactly to bitbake package names.')
-                lines_after.append('RDEPENDS_${{PN}} += "{}"'.format(' '.join(sorted(inst_reqs))))
+                lines_after.append('RDEPENDS_${{PN}} += "{}"'.format(' '.join('python-' + r.lower() for r in sorted(inst_reqs))))
 
         if mapped_deps:
             name = info.get('Name')
