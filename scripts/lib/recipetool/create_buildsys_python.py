@@ -270,7 +270,7 @@ class PythonRecipeHandler(RecipeHandler):
                 # Naive attempt to avoid listing things in unmapped deps which
                 # are already in install_requires. Only of any use if the
                 # python package name matches the project name.
-                unmapped_deps.difference_update(inst_reqs)
+                unmapped_deps.difference_update(i.replace('python-', '') for i in inst_reqs)
 
                 lines_after.append('# WARNING: the following rdepends are from setuptools install_requires. These')
                 lines_after.append('# upstream names may not correspond exactly to bitbake package names.')
