@@ -99,6 +99,9 @@ class PythonRecipeHandler(RecipeHandler):
         ('Install-requires', r'^([^><= ]+).*', r'\1'),
         ('Extras-require', r'^([^><= ]+).*', r'\1'),
         ('Tests-require', r'^([^><= ]+).*', r'\1'),
+
+        # Remove unhandled dependency on particular features (e.g. foo[PDF])
+        ('Install-requires', r'\[[^\]]+\]$', ''),
     ]
 
     # Operations to adjust non-list variable values based on the list
