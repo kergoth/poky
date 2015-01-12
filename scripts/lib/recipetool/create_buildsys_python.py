@@ -299,14 +299,20 @@ class PythonRecipeHandler(RecipeHandler):
         visitor.visit(setup_ast)
         info = visitor.setup_data
         # Naive mapping of setup() arguments to PKG-INFO field names
-        for key, value in info.items():
-            del info[key]
+        def _map(key):
             key = key.replace('_', '-')
             key = key[0].upper() + key[1:]
             if key in self.setup_parse_map:
                 key = self.setup_parse_map[key]
-            info[key] = value
-        return info, 'setuptools' in visitor.imported_modules, visitor.non_literals
+            return key
+
+        for key, value in info.items():
+            new_key = _map(key)
+            if new_key != key:
+                del info[key]
+                info[key] = value
+        non_literals = [_map(k) for k in visitor.non_literals]
+        return info, 'setuptools' in visitor.imported_modules, non_literals
 
     @staticmethod
     def parse_ast(filename):
