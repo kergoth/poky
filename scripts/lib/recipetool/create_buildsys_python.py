@@ -89,6 +89,7 @@ class PythonRecipeHandler(RecipeHandler):
     replacements = [
         ('License', r' ', '-'),
         ('License', r'-License$', ''),
+        ('License', r'^UNKNOWN$', ''),
 
         # Remove currently unhandled version numbers from these variables
         ('Requires', r' *\([^)]*\)', ''),
