@@ -269,8 +269,7 @@ class PythonRecipeHandler(RecipeHandler):
             if inst_reqs:
                 lines_after.append('')
             lines_after.append('# WARNING: the following rdepends are determined through basic analysis of the')
-            lines_after.append('# python sources, and might not be 100% accurate. It is your responsibility to')
-            lines_after.append('# verify that the values are complete and correct.')
+            lines_after.append('# python sources, and might not be 100% accurate.')
             lines_after.append('RDEPENDS_${{PN}} += "{}"'.format(' '.join(sorted(mapped_deps))))
 
         if unmapped_deps:
