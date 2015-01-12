@@ -326,7 +326,7 @@ class PythonRecipeHandler(RecipeHandler):
             new_key = _map(key)
             if new_key != key:
                 del info[key]
-                info[key] = value
+                info[new_key] = value
         non_literals = [_map(k) for k in visitor.non_literals]
         return info, 'setuptools' in visitor.imported_modules, non_literals
 
