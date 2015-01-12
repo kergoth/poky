@@ -276,9 +276,10 @@ class PythonRecipeHandler(RecipeHandler):
             if inst_reqs:
                 unmapped_deps.difference_update(inst_reqs)
 
+                inst_req_deps = ('python-' + r.replace('.', '-').lower() for r in sorted(inst_reqs))
                 lines_after.append('# WARNING: the following rdepends are from setuptools install_requires. These')
                 lines_after.append('# upstream names may not correspond exactly to bitbake package names.')
-                lines_after.append('RDEPENDS_${{PN}} += "{}"'.format(' '.join('python-' + r.lower() for r in sorted(inst_reqs))))
+                lines_after.append('RDEPENDS_${{PN}} += "{}"'.format(' '.join(inst_req_deps)))
 
         if mapped_deps:
             name = info.get('Name')
