@@ -93,7 +93,9 @@ class PythonRecipeHandler(RecipeHandler):
         ('Provides', r' *\([^)]*\)', ''),
         ('Obsoletes', r' *\([^)]*\)', ''),
         ('Install-requires', r'^([^><= ]+).*', r'\1'),
+        ('Install-requires', '^(.*)$', r'python-\1'),
         ('Tests-require', r'^([^><= ]+).*', r'\1'),
+        ('Tests-require', '^(.*)$', r'python-\1'),
     ]
 
     # Operations to adjust non-list variable values based on the list
