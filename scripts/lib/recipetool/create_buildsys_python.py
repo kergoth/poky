@@ -17,6 +17,7 @@
 
 import ast
 import codecs
+import collections
 import distutils.command.build_py
 import email
 import imp
@@ -96,6 +97,7 @@ class PythonRecipeHandler(RecipeHandler):
         ('Provides', r' *\([^)]*\)', ''),
         ('Obsoletes', r' *\([^)]*\)', ''),
         ('Install-requires', r'^([^><= ]+).*', r'\1'),
+        ('Extras-require', r'^([^><= ]+).*', r'\1'),
         ('Tests-require', r'^([^><= ]+).*', r'\1'),
     ]
 
@@ -188,6 +190,8 @@ class PythonRecipeHandler(RecipeHandler):
             if os.path.exists(requires_txt):
                 with codecs.open(requires_txt) as f:
                     inst_req = []
+                    extras_req = collections.defaultdict(list)
+                    current_feature = None
                     for line in f.readlines():
                         line = line.rstrip()
                         if not line:
@@ -195,9 +199,13 @@ class PythonRecipeHandler(RecipeHandler):
 
                         # We don't currently support sections for optional deps
                         if line.startswith('['):
-                            break
-                        inst_req.append(line)
+                            current_feature = line[1:-1]
+                        elif current_feature:
+                            extras_req[current_feature].append(line)
+                        else:
+                            inst_req.append(line)
                     info['Install-requires'] = inst_req
+                    info['Extras-require'] = extras_req
         elif RecipeHandler.checkfiles(srctree, ['PKG-INFO']):
             info = self.get_pkginfo(os.path.join(srctree, 'PKG-INFO'))
 
@@ -282,13 +290,31 @@ class PythonRecipeHandler(RecipeHandler):
                 lines_after.append('# upstream names may not correspond exactly to bitbake package names.')
                 lines_after.append('RDEPENDS_${{PN}} += "{}"'.format(' '.join(inst_req_deps)))
 
+        extras_req = set()
+        if 'Extras-require' in info:
+            extras_req = info['Extras-require']
+            if extras_req:
+                if inst_reqs:
+                    lines_after.append('')
+                lines_after.append('# The following configs & dependencies are from setuptools extras_require.')
+                lines_after.append('# These dependencies are optional, hence can be controlled via PACKAGECONFIG.')
+                lines_after.append('# The upstream names may not correspond exactly to bitbake package names.')
+                lines_after.append('#')
+                lines_after.append('# Uncomment this line to enable all the optional features.')
+                lines_after.append('#PACKAGECONFIG ?= "{}"'.format(' '.join(k.lower() for k in extras_req.iterkeys())))
+                for feature, feature_reqs in extras_req.iteritems():
+                    unmapped_deps.difference_update(feature_reqs)
+
+                    feature_req_deps = ('python-' + r.replace('.', '-').lower() for r in sorted(feature_reqs))
+                    lines_after.append('PACKAGECONFIG[{}] = ",,,{}"'.format(feature.lower(), ' '.join(feature_req_deps)))
+
         if mapped_deps:
             name = info.get('Name')
             if name and name[0] in mapped_deps:
                 # Attempt to avoid self-reference
                 mapped_deps.remove(name[0])
             mapped_deps -= set(self.excluded_pkgdeps)
-            if inst_reqs:
+            if inst_reqs or extras_req:
                 lines_after.append('')
             lines_after.append('# WARNING: the following rdepends are determined through basic analysis of the')
             lines_after.append('# python sources, and might not be 100% accurate.')
@@ -483,6 +509,16 @@ class PythonRecipeHandler(RecipeHandler):
                     del info[variable]
                 elif new_value != value:
                     info[variable] = new_value
+            elif hasattr(value, 'get'):
+                for dkey, dvalue in value.iteritems():
+                    new_list = []
+                    for pos, a_value in enumerate(dvalue):
+                        new_value = replace_value(search, replace, a_value)
+                        if new_value is not None and new_value != value:
+                            new_list.append(new_value)
+
+                    if value != new_list:
+                        value[dkey] = new_list
             else:
                 new_list = []
                 for pos, a_value in enumerate(value):
