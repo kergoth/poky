@@ -388,7 +388,7 @@ class PythonRecipeHandler(RecipeHandler):
         return info
 
     def scan_setup_python_deps(self, srctree, setup_info, setup_non_literals):
-        if 'package_dir' in setup_info:
+        if 'Package-dir' in setup_info:
             package_dir = setup_info['Package-dir']
         else:
             package_dir = {}
