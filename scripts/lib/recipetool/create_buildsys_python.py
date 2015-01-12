@@ -244,7 +244,7 @@ class PythonRecipeHandler(RecipeHandler):
 
             if field in self.bbvar_map:
                 bbvar = self.bbvar_map[field]
-                if bbvar not in bbinfo:
+                if bbvar not in bbinfo and value:
                     bbinfo[bbvar] = value
 
 
@@ -260,21 +260,18 @@ class PythonRecipeHandler(RecipeHandler):
                             '# WARNING: the following LICENSE value is a best guess - it is your',
                             '# responsibility to verify that the value is complete and correct.'
                         ]
-                    del bbinfo['LICENSE']
+                del bbinfo['LICENSE']
 
         src_uri_line = None
         for pos, line in enumerate(lines_before):
             if line.startswith('SRC_URI ='):
                 src_uri_line = pos
 
-        mdinfo = ['']
-        for k in sorted(bbinfo):
-            v = bbinfo[k]
-            if not v:
-                continue
-            else:
-                mdinfo.append('{} = "{}"'.format(k, v))
         if bbinfo:
+            mdinfo = ['']
+            for k in sorted(bbinfo):
+                v = bbinfo[k]
+                mdinfo.append('{} = "{}"'.format(k, v))
             lines_before[src_uri_line-1:src_uri_line-1] = mdinfo
 
         mapped_deps, unmapped_deps = self.scan_setup_python_deps(srctree, setup_info, setup_non_literals)
