@@ -507,6 +507,9 @@ class PythonRecipeHandler(RecipeHandler):
                 for python_dir in python_dirs:
                     if fn.startswith(python_dir):
                         relpath = fn[len(python_dir):]
+                        relstart, _, relremaining = relpath.partition(os.sep)
+                        if relstart.endswith('.egg'):
+                            relpath = relremaining
                         base, _ = os.path.splitext(relpath)
 
                         if '/.debug/' in base:
