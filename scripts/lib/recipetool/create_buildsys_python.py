@@ -43,7 +43,9 @@ class PythonRecipeHandler(RecipeHandler):
     base_pkgdeps = ['python-core']
     excluded_pkgdeps = ['python-dbg']
     # os.path is provided by python-core
-    excluded_modules = ['builtins', 'os.path']
+    assume_provided = ['builtins', 'os.path']
+    # Assumes that the host python builtin_module_names is sane for target too
+    assume_provided = assume_provided + list(sys.builtin_module_names)
 
     bbvar_map = {
         'Name': 'PN',
@@ -274,6 +276,7 @@ class PythonRecipeHandler(RecipeHandler):
             lines_after.append('# python sources, and might not be 100% accurate.')
             lines_after.append('RDEPENDS_${{PN}} += "{}"'.format(' '.join(sorted(mapped_deps))))
 
+        unmapped_deps -= set(self.assume_provided)
         if unmapped_deps:
             if mapped_deps:
                 lines_after.append('')
@@ -401,7 +404,6 @@ class PythonRecipeHandler(RecipeHandler):
 
         provided_packages = self.parse_pkgdata_for_python_packages()
         scanned_deps = self.scan_python_dependencies([os.path.join(srctree, p) for p in to_scan])
-        scanned_deps -= set(self.excluded_modules)
         mapped_deps, unmapped_deps = set(self.base_pkgdeps), set()
         for dep in scanned_deps:
             mapped = provided_packages.get(dep)
