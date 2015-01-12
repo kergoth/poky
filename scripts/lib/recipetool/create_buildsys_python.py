@@ -240,6 +240,15 @@ class PythonRecipeHandler(RecipeHandler):
                 if bbvar not in bbinfo:
                     bbinfo[bbvar] = value
 
+
+        license = bbinfo.get('LICENSE')
+        if license:
+            for pos, line in enumerate(lines_before):
+                if line.startswith('LICENSE ='):
+                    lines_before[pos] = 'LICENSE = "{}"'.format(license)
+                    del bbinfo['LICENSE']
+                    break
+
         for k in sorted(bbinfo):
             v = bbinfo[k]
             if not v:
