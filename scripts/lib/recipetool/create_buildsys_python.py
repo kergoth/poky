@@ -241,15 +241,17 @@ class PythonRecipeHandler(RecipeHandler):
             if field in self.excluded_fields:
                 continue
 
+            if field not in self.bbvar_map:
+                continue
+
             if isinstance(values, basestring):
                 value = values
             else:
-                value = ' '.join(v for v in values if v)
+                value = ' '.join(str(v) for v in values if v)
 
-            if field in self.bbvar_map:
-                bbvar = self.bbvar_map[field]
-                if bbvar not in bbinfo and value:
-                    bbinfo[bbvar] = value
+            bbvar = self.bbvar_map[field]
+            if bbvar not in bbinfo and value:
+                bbinfo[bbvar] = value
 
         comment_lic_line = None
         for pos, line in enumerate(list(lines_before)):
