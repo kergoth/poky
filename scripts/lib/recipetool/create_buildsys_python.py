@@ -246,7 +246,8 @@ class PythonRecipeHandler(RecipeHandler):
             if line.startswith('LICENSE ='):
                 license = bbinfo.get('LICENSE')
                 if license:
-                    lines_before[pos] = 'LICENSE = "{}"'.format(license)
+                    if line in ('LICENSE = "Unknown"', 'LICENSE = "CLOSED"'):
+                        lines_before[pos] = 'LICENSE = "{}"'.format(license)
                     del bbinfo['LICENSE']
             elif line.startswith('SRC_URI ='):
                 src_uri_line = pos
