@@ -104,60 +104,57 @@ class PythonRecipeHandler(RecipeHandler):
         ('Install-requires', r'\[[^\]]+\]$', ''),
     ]
 
-    # Operations to adjust non-list variable values based on the list
-    # contents, e.g. set License based on the license classifiers
-    list_entry_ops = [
-        # Field to search, value to search for, bb var to set, bb value to set
-        ('Classifier', 'License :: OSI Approved :: Academic Free License (AFL)', 'License', 'AFL'),
-        ('Classifier', 'License :: OSI Approved :: Apache Software License', 'License', 'Apache'),
-        ('Classifier', 'License :: OSI Approved :: Apple Public Source License', 'License', 'APSL'),
-        ('Classifier', 'License :: OSI Approved :: Artistic License', 'License', 'Artistic'),
-        ('Classifier', 'License :: OSI Approved :: Attribution Assurance License', 'License', 'AAL'),
-        ('Classifier', 'License :: OSI Approved :: BSD License', 'License', 'BSD'),
-        ('Classifier', 'License :: OSI Approved :: Common Public License', 'License', 'CPL'),
-        ('Classifier', 'License :: OSI Approved :: Eiffel Forum License', 'License', 'EFL'),
-        ('Classifier', 'License :: OSI Approved :: European Union Public Licence 1.0 (EUPL 1.0)', 'License', 'EUPL-1.0'),
-        ('Classifier', 'License :: OSI Approved :: European Union Public Licence 1.1 (EUPL 1.1)', 'License', 'EUPL-1.1'),
-        ('Classifier', 'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)', 'License', 'AGPL-3.0+'),
-        ('Classifier', 'License :: OSI Approved :: GNU Affero General Public License v3', 'License', 'AGPL-3.0'),
-        ('Classifier', 'License :: OSI Approved :: GNU Free Documentation License (FDL)', 'License', 'GFDL'),
-        ('Classifier', 'License :: OSI Approved :: GNU General Public License (GPL)', 'License', 'GPL'),
-        ('Classifier', 'License :: OSI Approved :: GNU General Public License v2 (GPLv2)', 'License', 'GPL-2.0'),
-        ('Classifier', 'License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)', 'License', 'GPL-2.0+'),
-        ('Classifier', 'License :: OSI Approved :: GNU General Public License v3 (GPLv3)', 'License', 'GPL-3.0'),
-        ('Classifier', 'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)', 'License', 'GPL-3.0+'),
-        ('Classifier', 'License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)', 'License', 'LGPL-2.0'),
-        ('Classifier', 'License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)', 'License', 'LGPL-2.0+'),
-        ('Classifier', 'License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)', 'License', 'LGPL-3.0'),
-        ('Classifier', 'License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)', 'License', 'LGPL-3.0+'),
-        ('Classifier', 'License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)', 'License', 'LGPL'),
-        ('Classifier', 'License :: OSI Approved :: IBM Public License', 'License', 'IPL'),
-        ('Classifier', 'License :: OSI Approved :: ISC License (ISCL)', 'License', 'ISC'),
-        ('Classifier', 'License :: OSI Approved :: Intel Open Source License', 'License', 'Intel'),
-        ('Classifier', 'License :: OSI Approved :: Jabber Open Source License', 'License', 'Jabber'),
-        ('Classifier', 'License :: OSI Approved :: MIT License', 'License', 'MIT'),
-        ('Classifier', 'License :: OSI Approved :: MITRE Collaborative Virtual Workspace License (CVW)', 'License', 'CVWL'),
-        ('Classifier', 'License :: OSI Approved :: Motosoto License', 'License', 'Motosoto'),
-        ('Classifier', 'License :: OSI Approved :: Mozilla Public License 1.0 (MPL)', 'License', 'MPL-1.0'),
-        ('Classifier', 'License :: OSI Approved :: Mozilla Public License 1.1 (MPL 1.1)', 'License', 'MPL-1.1'),
-        ('Classifier', 'License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)', 'License', 'MPL-2.0'),
-        ('Classifier', 'License :: OSI Approved :: Nethack General Public License', 'License', 'NGPL'),
-        ('Classifier', 'License :: OSI Approved :: Nokia Open Source License', 'License', 'Nokia'),
-        ('Classifier', 'License :: OSI Approved :: Open Group Test Suite License', 'License', 'OGTSL'),
-        ('Classifier', 'License :: OSI Approved :: Python License (CNRI Python License)', 'License', 'CNRI-Python'),
-        ('Classifier', 'License :: OSI Approved :: Python Software Foundation License', 'License', 'PSF'),
-        ('Classifier', 'License :: OSI Approved :: Qt Public License (QPL)', 'License', 'QPL'),
-        ('Classifier', 'License :: OSI Approved :: Ricoh Source Code Public License', 'License', 'RSCPL'),
-        ('Classifier', 'License :: OSI Approved :: Sleepycat License', 'License', 'Sleepycat'),
-        ('Classifier', 'License :: OSI Approved :: Sun Industry Standards Source License (SISSL)', 'License', '--  Sun Industry Standards Source License (SISSL)'),
-        ('Classifier', 'License :: OSI Approved :: Sun Public License', 'License', 'SPL'),
-        ('Classifier', 'License :: OSI Approved :: University of Illinois/NCSA Open Source License', 'License', 'NCSA'),
-        ('Classifier', 'License :: OSI Approved :: Vovida Software License 1.0', 'License', 'VSL-1.0'),
-        ('Classifier', 'License :: OSI Approved :: W3C License', 'License', 'W3C'),
-        ('Classifier', 'License :: OSI Approved :: X.Net License', 'License', 'Xnet'),
-        ('Classifier', 'License :: OSI Approved :: Zope Public License', 'License', 'ZPL'),
-        ('Classifier', 'License :: OSI Approved :: zlib/libpng License', 'License', 'Zlib'),
-    ]
+    classifier_license_map = {
+        'License :: OSI Approved :: Academic Free License (AFL)': 'AFL',
+        'License :: OSI Approved :: Apache Software License': 'Apache',
+        'License :: OSI Approved :: Apple Public Source License': 'APSL',
+        'License :: OSI Approved :: Artistic License': 'Artistic',
+        'License :: OSI Approved :: Attribution Assurance License': 'AAL',
+        'License :: OSI Approved :: BSD License': 'BSD',
+        'License :: OSI Approved :: Common Public License': 'CPL',
+        'License :: OSI Approved :: Eiffel Forum License': 'EFL',
+        'License :: OSI Approved :: European Union Public Licence 1.0 (EUPL 1.0)': 'EUPL-1.0',
+        'License :: OSI Approved :: European Union Public Licence 1.1 (EUPL 1.1)': 'EUPL-1.1',
+        'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)': 'AGPL-3.0+',
+        'License :: OSI Approved :: GNU Affero General Public License v3': 'AGPL-3.0',
+        'License :: OSI Approved :: GNU Free Documentation License (FDL)': 'GFDL',
+        'License :: OSI Approved :: GNU General Public License (GPL)': 'GPL',
+        'License :: OSI Approved :: GNU General Public License v2 (GPLv2)': 'GPL-2.0',
+        'License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)': 'GPL-2.0+',
+        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)': 'GPL-3.0',
+        'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)': 'GPL-3.0+',
+        'License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)': 'LGPL-2.0',
+        'License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)': 'LGPL-2.0+',
+        'License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)': 'LGPL-3.0',
+        'License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)': 'LGPL-3.0+',
+        'License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)': 'LGPL',
+        'License :: OSI Approved :: IBM Public License': 'IPL',
+        'License :: OSI Approved :: ISC License (ISCL)': 'ISC',
+        'License :: OSI Approved :: Intel Open Source License': 'Intel',
+        'License :: OSI Approved :: Jabber Open Source License': 'Jabber',
+        'License :: OSI Approved :: MIT License': 'MIT',
+        'License :: OSI Approved :: MITRE Collaborative Virtual Workspace License (CVW)': 'CVWL',
+        'License :: OSI Approved :: Motosoto License': 'Motosoto',
+        'License :: OSI Approved :: Mozilla Public License 1.0 (MPL)': 'MPL-1.0',
+        'License :: OSI Approved :: Mozilla Public License 1.1 (MPL 1.1)': 'MPL-1.1',
+        'License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)': 'MPL-2.0',
+        'License :: OSI Approved :: Nethack General Public License': 'NGPL',
+        'License :: OSI Approved :: Nokia Open Source License': 'Nokia',
+        'License :: OSI Approved :: Open Group Test Suite License': 'OGTSL',
+        'License :: OSI Approved :: Python License (CNRI Python License)': 'CNRI-Python',
+        'License :: OSI Approved :: Python Software Foundation License': 'PSF',
+        'License :: OSI Approved :: Qt Public License (QPL)': 'QPL',
+        'License :: OSI Approved :: Ricoh Source Code Public License': 'RSCPL',
+        'License :: OSI Approved :: Sleepycat License': 'Sleepycat',
+        'License :: OSI Approved :: Sun Industry Standards Source License (SISSL)': '--  Sun Industry Standards Source License (SISSL)',
+        'License :: OSI Approved :: Sun Public License': 'SPL',
+        'License :: OSI Approved :: University of Illinois/NCSA Open Source License': 'NCSA',
+        'License :: OSI Approved :: Vovida Software License 1.0': 'VSL-1.0',
+        'License :: OSI Approved :: W3C License': 'W3C',
+        'License :: OSI Approved :: X.Net License': 'Xnet',
+        'License :: OSI Approved :: Zope Public License': 'ZPL',
+        'License :: OSI Approved :: zlib/libpng License': 'Zlib',
+    }
 
     def __init__(self):
         pass
@@ -227,6 +224,17 @@ class PythonRecipeHandler(RecipeHandler):
         else:
             classes.append('distutils')
 
+        if 'Classifier' in info:
+            licenses = []
+            for classifier in info['Classifier']:
+                if classifier in self.classifier_license_map:
+                    license = self.classifier_license_map[classifier]
+                    licenses.append(license)
+
+            if licenses:
+                info['License'] = ' & '.join(licenses)
+
+
         # Map PKG-INFO & setup.py fields to bitbake variables
         bbinfo = {}
         for field, values in info.iteritems():
@@ -235,13 +243,6 @@ class PythonRecipeHandler(RecipeHandler):
 
             if isinstance(values, basestring):
                 value = values
-            elif field not in self.bbvar_map:
-                for checkfield, search, newvar, value in self.list_entry_ops:
-                    if checkfield == field and search in values:
-                        if newvar in self.bbvar_map:
-                            newvar = self.bbvar_map[newvar]
-                        bbinfo[newvar] = value
-                continue
             else:
                 value = ' '.join(v for v in values if v)
 
@@ -249,7 +250,6 @@ class PythonRecipeHandler(RecipeHandler):
                 bbvar = self.bbvar_map[field]
                 if bbvar not in bbinfo and value:
                     bbinfo[bbvar] = value
-
 
         comment_lic_line = None
         for pos, line in enumerate(list(lines_before)):
