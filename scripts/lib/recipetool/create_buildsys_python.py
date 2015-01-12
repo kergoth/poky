@@ -241,22 +241,25 @@ class PythonRecipeHandler(RecipeHandler):
                     bbinfo[bbvar] = value
 
 
-        license = bbinfo.get('LICENSE')
-        if license:
-            for pos, line in enumerate(lines_before):
-                if line.startswith('LICENSE ='):
+        src_uri_line = None
+        for pos, line in enumerate(lines_before):
+            if line.startswith('LICENSE ='):
+                license = bbinfo.get('LICENSE')
+                if license:
                     lines_before[pos] = 'LICENSE = "{}"'.format(license)
                     del bbinfo['LICENSE']
-                    break
+            elif line.startswith('SRC_URI ='):
+                src_uri_line = pos
 
+        mdinfo = ['']
         for k in sorted(bbinfo):
             v = bbinfo[k]
             if not v:
                 continue
             else:
-                lines_before.append('{} = "{}"'.format(k, v))
+                mdinfo.append('{} = "{}"'.format(k, v))
         if bbinfo:
-            lines_before.append('')
+            lines_before[src_uri_line-1:src_uri_line-1] = mdinfo
 
         mapped_deps, unmapped_deps = self.scan_setup_python_deps(srctree, setup_info, setup_non_literals)
 
