@@ -240,22 +240,23 @@ class PythonRecipeHandler(RecipeHandler):
                     bbinfo[bbvar] = value
 
 
-        src_uri_line, comment_lic_line = None, None
+        comment_lic_line = None
         for pos, line in enumerate(list(lines_before)):
             if line.startswith('#') and 'LICENSE' in line:
                 comment_lic_line = pos
-            elif line.startswith('LICENSE ='):
-                license = bbinfo.get('LICENSE')
-                if license:
-                    if line in ('LICENSE = "Unknown"', 'LICENSE = "CLOSED"'):
-                        lines_before[pos] = 'LICENSE = "{}"'.format(license)
-                        if line == 'LICENSE = "CLOSED"' and comment_lic_line:
-                            lines_before[comment_lic_line:pos] = [
-                                '# WARNING: the following LICENSE value is a best guess - it is your',
-                                '# responsibility to verify that the value is complete and correct.'
-                            ]
-                        del bbinfo['LICENSE']
-            elif line.startswith('SRC_URI ='):
+            elif line.startswith('LICENSE =') and 'LICENSE' in bbinfo:
+                if line in ('LICENSE = "Unknown"', 'LICENSE = "CLOSED"'):
+                    lines_before[pos] = 'LICENSE = "{}"'.format(bbinfo['LICENSE'])
+                    if line == 'LICENSE = "CLOSED"' and comment_lic_line:
+                        lines_before[comment_lic_line:pos] = [
+                            '# WARNING: the following LICENSE value is a best guess - it is your',
+                            '# responsibility to verify that the value is complete and correct.'
+                        ]
+                    del bbinfo['LICENSE']
+
+        src_uri_line = None
+        for pos, line in enumerate(lines_before):
+            if line.startswith('SRC_URI ='):
                 src_uri_line = pos
 
         mdinfo = ['']
