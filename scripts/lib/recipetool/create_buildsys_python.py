@@ -402,7 +402,12 @@ class PythonRecipeHandler(RecipeHandler):
         if not any(v in setup_non_literals for v in ['Py-modules', 'Scripts', 'Packages']):
             if 'Py-modules' in setup_info:
                 for module in setup_info['Py-modules']:
-                    to_scan.append(pd.get_package_dir(module) + '.py')
+                    try:
+                        package, module = module.rsplit('.', 1)
+                    except ValueError:
+                        package, module = '.', module
+                    module_path = os.path.join(pd.get_package_dir(package), module + '.py')
+                    to_scan.append(module_path)
 
             if 'Packages' in setup_info:
                 for package in setup_info['Packages']:
