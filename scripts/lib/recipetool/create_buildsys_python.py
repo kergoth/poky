@@ -447,9 +447,13 @@ class PythonRecipeHandler(RecipeHandler):
 
             if 'Scripts' in setup_info:
                 to_scan.extend(setup_info['Scripts'])
+        else:
+            logger.info("Scanning the entire source tree, as one or more of the following setup keywords are non-literal: py_modules, scripts, packages.")
 
         if not to_scan:
             to_scan = ['.']
+
+        logger.info("Scanning paths for packages & dependencies: %s", ', '.join(to_scan))
 
         provided_packages = self.parse_pkgdata_for_python_packages()
         scanned_deps = self.scan_python_dependencies([os.path.join(srctree, p) for p in to_scan])
