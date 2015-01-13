@@ -292,7 +292,6 @@ class PythonRecipeHandler(RecipeHandler):
                 lines_after.append('# Uncomment this line to enable all the optional features.')
                 lines_after.append('#PACKAGECONFIG ?= "{}"'.format(' '.join(k.lower() for k in extras_req.iterkeys())))
                 for feature, feature_reqs in extras_req.iteritems():
-                    logger.warn("Removing %s from unmapped_deps" % feature_reqs)
                     unmapped_deps.difference_update(feature_reqs)
 
                     feature_req_deps = ('python-' + r.replace('.', '-').lower() for r in sorted(feature_reqs))
