@@ -281,8 +281,27 @@ class PythonRecipeHandler(RecipeHandler):
 
         mapped_deps, unmapped_deps = self.scan_setup_python_deps(srctree, setup_info, setup_non_literals)
 
+        extras_req = set()
+        if 'Extras-require' in info:
+            extras_req = info['Extras-require']
+            if extras_req:
+                lines_after.append('# The following configs & dependencies are from setuptools extras_require.')
+                lines_after.append('# These dependencies are optional, hence can be controlled via PACKAGECONFIG.')
+                lines_after.append('# The upstream names may not correspond exactly to bitbake package names.')
+                lines_after.append('#')
+                lines_after.append('# Uncomment this line to enable all the optional features.')
+                lines_after.append('#PACKAGECONFIG ?= "{}"'.format(' '.join(k.lower() for k in extras_req.iterkeys())))
+                for feature, feature_reqs in extras_req.iteritems():
+                    logger.warn("Removing %s from unmapped_deps" % feature_reqs)
+                    unmapped_deps.difference_update(feature_reqs)
+
+                    feature_req_deps = ('python-' + r.replace('.', '-').lower() for r in sorted(feature_reqs))
+                    lines_after.append('PACKAGECONFIG[{}] = ",,,{}"'.format(feature.lower(), ' '.join(feature_req_deps)))
+
         inst_reqs = set()
         if 'Install-requires' in info:
+            if extras_req:
+                lines_after.append('')
             inst_reqs = info['Install-requires']
             if inst_reqs:
                 unmapped_deps.difference_update(inst_reqs)
@@ -291,24 +310,6 @@ class PythonRecipeHandler(RecipeHandler):
                 lines_after.append('# WARNING: the following rdepends are from setuptools install_requires. These')
                 lines_after.append('# upstream names may not correspond exactly to bitbake package names.')
                 lines_after.append('RDEPENDS_${{PN}} += "{}"'.format(' '.join(inst_req_deps)))
-
-        extras_req = set()
-        if 'Extras-require' in info:
-            extras_req = info['Extras-require']
-            if extras_req:
-                if inst_reqs:
-                    lines_after.append('')
-                lines_after.append('# The following configs & dependencies are from setuptools extras_require.')
-                lines_after.append('# These dependencies are optional, hence can be controlled via PACKAGECONFIG.')
-                lines_after.append('# The upstream names may not correspond exactly to bitbake package names.')
-                lines_after.append('#')
-                lines_after.append('# Uncomment this line to enable all the optional features.')
-                lines_after.append('#PACKAGECONFIG ?= "{}"'.format(' '.join(k.lower() for k in extras_req.iterkeys())))
-                for feature, feature_reqs in extras_req.iteritems():
-                    unmapped_deps.difference_update(feature_reqs)
-
-                    feature_req_deps = ('python-' + r.replace('.', '-').lower() for r in sorted(feature_reqs))
-                    lines_after.append('PACKAGECONFIG[{}] = ",,,{}"'.format(feature.lower(), ' '.join(feature_req_deps)))
 
         if mapped_deps:
             name = info.get('Name')
