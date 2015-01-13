@@ -655,21 +655,21 @@ class LiteralAstTransform(ast.NodeTransformer):
         try:
             return ast.literal_eval(node)
         except ValueError:
-            fields = {}
-            for k, v in ast.iter_fields(node):
-                if k in self.excluded_fields:
+            for field, value in ast.iter_fields(node):
+                if field in self.excluded_fields:
                     continue
-                if v is None:
+                if value is None:
                     continue
 
-                if isinstance(v, list):
-                    if k in ('keywords', 'kwargs'):
-                        fields[k] = dict((kw.arg, self.visit(kw.value)) for kw in v)
+                if isinstance(value, list):
+                    if field in ('keywords', 'kwargs'):
+                        new_value = dict((kw.arg, self.visit(kw.value)) for kw in value)
                     else:
-                        fields[k] = [self.visit(i) for i in v]
+                        new_value = [self.visit(i) for i in value]
                 else:
-                    fields[k] = self.visit(v)
-            return NonLiteral(node.__class__.__name__, fields)
+                    new_value = self.visit(value)
+                setattr(node, field, new_value)
+            return node
 
     def visit_Name(self, node):
         if hasattr('__builtins__', node.id):
@@ -692,19 +692,8 @@ class LiteralAstTransform(ast.NodeTransformer):
         return dict(zip(keys, values))
 
 
-class NonLiteral(object):
-    def __init__(self, name, fields):
-        self._name = name
-        self._fields = fields
-        for field, value in fields.iteritems():
-            setattr(self, field, value)
-
-    def __repr__(self):
-        return 'NonLiteral(%s, {%s})' % (self._name, ', '.join('%s=%s' % (k, repr(v)) for k, v in self._fields.iteritems()))
-
-
 def has_non_literals(value):
-    if isinstance(value, NonLiteral):
+    if isinstance(value, ast.AST):
         return True
     elif isinstance(value, basestring):
         return False
