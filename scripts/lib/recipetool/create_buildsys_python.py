@@ -665,7 +665,7 @@ class LiteralAstTransform(ast.NodeTransformer):
         except ValueError:
             for field, value in ast.iter_fields(node):
                 if field in self.excluded_fields:
-                    continue
+                    delattr(node, field)
                 if value is None:
                     continue
 
