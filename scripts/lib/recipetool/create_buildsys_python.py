@@ -608,15 +608,16 @@ def gather_setup_info(fileobj):
 
     non_literals, extensions = {}, []
     for key, value in visitor.keywords.items():
-        if has_non_literals(value):
+        if key == 'ext_modules':
+            for ext in value:
+                if  (isinstance(ext, ast.Call) and
+                     isinstance(ext.func, ast.Name) and
+                     ext.func.id == 'Extension' and
+                     not has_non_literals(ext.args)):
+                    extensions.append(ext.args[0])
+        elif has_non_literals(value):
             non_literals[key] = value
             del visitor.keywords[key]
-        elif key == 'ext_modules':
-            for ext in value:
-                if  (ext._name == 'Call' and
-                     ext.func._name == 'Name' and
-                     ext.func.id == 'Extension'):
-                    extensions.append(ext.args[0])
 
     return visitor.keywords, visitor.imported_modules, non_literals, extensions
 
