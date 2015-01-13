@@ -178,10 +178,10 @@ class PythonRecipeHandler(RecipeHandler):
 
         setupscript = os.path.join(srctree, 'setup.py')
         try:
-            setup_info, uses_setuptools, setup_non_literals = self.parse_setup_py(setupscript)
+            setup_info, uses_setuptools, setup_non_literals, extensions = self.parse_setup_py(setupscript)
         except Exception:
             logger.exception("Failed to parse setup.py")
-            setup_info, uses_setuptools, setup_non_literals = {}, True, []
+            setup_info, uses_setuptools, setup_non_literals, extensions = {}, True, [], []
 
         egginfo = glob.glob(os.path.join(srctree, '*.egg-info'))
         if egginfo:
@@ -322,6 +322,7 @@ class PythonRecipeHandler(RecipeHandler):
             lines_after.append('# python sources, and might not be 100% accurate.')
             lines_after.append('RDEPENDS_${{PN}} += "{}"'.format(' '.join(sorted(mapped_deps))))
 
+        unmapped_deps -= set(extensions)
         unmapped_deps -= set(self.assume_provided)
         if unmapped_deps:
             if mapped_deps:
@@ -344,10 +345,9 @@ class PythonRecipeHandler(RecipeHandler):
         return msginfo
 
     def parse_setup_py(self, setupscript='./setup.py'):
-        setup_ast = self.parse_ast(setupscript)
-        visitor = SetupScriptVisitor()
-        visitor.visit(setup_ast)
-        info = visitor.setup_data
+        with codecs.open(setupscript) as f:
+            info, imported_modules, non_literals, extensions = gather_setup_info(f)
+
         # Naive mapping of setup() arguments to PKG-INFO field names
         def _map(key):
             key = key.replace('_', '-')
@@ -356,19 +356,17 @@ class PythonRecipeHandler(RecipeHandler):
                 key = self.setup_parse_map[key]
             return key
 
+        non_literal_info = {}
         for key, value in info.items():
             new_key = _map(key)
-            if new_key != key:
+            if key in non_literals:
+                del info[key]
+                non_literal_info[new_key] = value
+            elif new_key != key:
                 del info[key]
                 info[new_key] = value
-        non_literals = [_map(k) for k in visitor.non_literals]
-        return info, 'setuptools' in visitor.imported_modules, non_literals
 
-    @staticmethod
-    def parse_ast(filename):
-        with codecs.open(filename, 'r') as f:
-            source = f.read()
-        return ast.parse(source, filename)
+        return info, 'setuptools' in imported_modules, non_literal_info, extensions
 
     def get_setup_args_info(self, setupscript='./setup.py'):
         cmd = ['python', setupscript]
@@ -511,7 +509,7 @@ class PythonRecipeHandler(RecipeHandler):
                     del info[variable]
                 elif new_value != value:
                     info[variable] = new_value
-            elif hasattr(value, 'get'):
+            elif hasattr(value, 'iteritems'):
                 for dkey, dvalue in value.iteritems():
                     new_list = []
                     for pos, a_value in enumerate(dvalue):
@@ -599,12 +597,41 @@ class PythonRecipeHandler(RecipeHandler):
             raise
 
 
+def gather_setup_info(fileobj):
+    parsed = ast.parse(fileobj.read(), fileobj.name)
+    visitor = SetupScriptVisitor()
+    visitor.visit(parsed)
+
+    extensions = []
+    if 'ext_modules' in visitor.keywords:
+        # Get the module/package names of the extensions this project builds
+        for ext in visitor.keywords['ext_modules']:
+            if  (ext._name == 'Call' and
+                 ext.func._name == 'Name' and
+                 ext.func.id == 'Extension'):
+                extensions.append(ext.args[0])
+    return visitor.keywords, visitor.imported_modules, visitor.non_literals, extensions
+
+
 class SetupScriptVisitor(ast.NodeVisitor):
     def __init__(self):
         ast.NodeVisitor.__init__(self)
+        self.keywords = {}
         self.non_literals = []
-        self.setup_data = {}
         self.imported_modules = set()
+
+    def visit_Expr(self, node):
+        if isinstance(node.value, ast.Call) and \
+           isinstance(node.value.func, ast.Name) and \
+           node.value.func.id == 'setup':
+            self.visit_setup(node.value)
+
+    def visit_setup(self, node):
+        call = LiteralAstTransform().visit(node)
+        self.keywords = call.keywords
+        for k, v in self.keywords.iteritems():
+            if has_non_literals(v):
+               self.non_literals.append(k)
 
     def visit_Import(self, node):
         for alias in node.names:
@@ -613,22 +640,78 @@ class SetupScriptVisitor(ast.NodeVisitor):
     def visit_ImportFrom(self, node):
         self.imported_modules.add(node.module)
 
-    def visit_Expr(self, node):
-        if isinstance(node.value, ast.Call) and \
-           isinstance(node.value.func, ast.Name) and \
-           node.value.func.id == 'setup':
-            self.visit_setup(node.value)
-            self.generic_visit(node.value)
 
-    def visit_setup(self, node):
-        for keyword in node.keywords:
-            name = keyword.arg
-            try:
-                value = ast.literal_eval(keyword.value)
-            except ValueError:
-                self.non_literals.append(name)
-            else:
-                self.setup_data[name] = value
+class LiteralAstTransform(ast.NodeTransformer):
+    """Simplify the ast through evaluation of literals."""
+    excluded_fields = ['ctx']
+
+    def visit(self, node):
+        if not isinstance(node, ast.AST):
+            return node
+        else:
+            return ast.NodeTransformer.visit(self, node)
+
+    def generic_visit(self, node):
+        try:
+            return ast.literal_eval(node)
+        except ValueError:
+            fields = {}
+            for k, v in ast.iter_fields(node):
+                if k in self.excluded_fields:
+                    continue
+                if v is None:
+                    continue
+
+                if isinstance(v, list):
+                    if k in ('keywords', 'kwargs'):
+                        fields[k] = dict((kw.arg, self.visit(kw.value)) for kw in v)
+                    else:
+                        fields[k] = [self.visit(i) for i in v]
+                else:
+                    fields[k] = self.visit(v)
+            return NonLiteral(node.__class__.__name__, fields)
+
+    def visit_Name(self, node):
+        if hasattr('__builtins__', node.id):
+            return getattr(__builtins__, node.id)
+        else:
+            return self.generic_visit(node)
+
+    def visit_Tuple(self, node):
+        return tuple(self.visit(v) for v in node.elts)
+
+    def visit_List(self, node):
+        return [self.visit(v) for v in node.elts]
+
+    def visit_Set(self, node):
+        return set(self.visit(v) for v in node.elts)
+
+    def visit_Dict(self, node):
+        keys = (self.visit(k) for k in node.keys)
+        values = (self.visit(v) for v in node.values)
+        return dict(zip(keys, values))
+
+
+class NonLiteral(object):
+    def __init__(self, name, fields):
+        self._name = name
+        self._fields = fields
+        for field, value in fields.iteritems():
+            setattr(self, field, value)
+
+    def __repr__(self):
+        return 'NonLiteral(%s, {%s})' % (self._name, ', '.join('%s=%s' % (k, repr(v)) for k, v in self._fields.iteritems()))
+
+
+def has_non_literals(value):
+    if isinstance(value, NonLiteral):
+        return True
+    elif isinstance(value, basestring):
+        return False
+    elif hasattr(value, 'itervalues'):
+        return any(has_non_literals(v) for v in value.itervalues())
+    elif hasattr(value, '__iter__'):
+        return any(has_non_literals(v) for v in value)
 
 
 def plugin_init(pluginlist):
