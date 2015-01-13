@@ -603,15 +603,19 @@ def gather_setup_info(fileobj):
     visitor = SetupScriptVisitor()
     visitor.visit(parsed)
 
-    extensions = []
-    if 'ext_modules' in visitor.keywords:
-        # Get the module/package names of the extensions this project builds
-        for ext in visitor.keywords['ext_modules']:
-            if  (ext._name == 'Call' and
-                 ext.func._name == 'Name' and
-                 ext.func.id == 'Extension'):
-                extensions.append(ext.args[0])
-    return visitor.keywords, visitor.imported_modules, visitor.non_literals, extensions
+    non_literals, extensions = {}, []
+    for key, value in visitor.keywords.items():
+        if has_non_literals(value):
+            non_literals[key] = value
+            del visitor.keywords[key]
+        elif key == 'ext_modules':
+            for ext in value:
+                if  (ext._name == 'Call' and
+                     ext.func._name == 'Name' and
+                     ext.func.id == 'Extension'):
+                    extensions.append(ext.args[0])
+
+    return visitor.keywords, visitor.imported_modules, non_literals, extensions
 
 
 class SetupScriptVisitor(ast.NodeVisitor):
