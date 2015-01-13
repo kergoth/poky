@@ -348,7 +348,6 @@ class PythonRecipeHandler(RecipeHandler):
         with codecs.open(setupscript) as f:
             info, imported_modules, non_literals, extensions = gather_setup_info(f)
 
-        # Naive mapping of setup() arguments to PKG-INFO field names
         def _map(key):
             key = key.replace('_', '-')
             key = key[0].upper() + key[1:]
@@ -356,17 +355,15 @@ class PythonRecipeHandler(RecipeHandler):
                 key = self.setup_parse_map[key]
             return key
 
-        non_literal_info = {}
-        for key, value in info.items():
-            new_key = _map(key)
-            if key in non_literals:
-                del info[key]
-                non_literal_info[new_key] = value
-            elif new_key != key:
-                del info[key]
-                info[new_key] = value
+        # Naive mapping of setup() arguments to PKG-INFO field names
+        for d in [info, non_literals]:
+            for key, value in d.items():
+                new_key = _map(key)
+                if new_key != key:
+                    del d[key]
+                    d[new_key] = value
 
-        return info, 'setuptools' in imported_modules, non_literal_info, extensions
+        return info, 'setuptools' in imported_modules, non_literals, extensions
 
     def get_setup_args_info(self, setupscript='./setup.py'):
         cmd = ['python', setupscript]
