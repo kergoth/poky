@@ -209,8 +209,11 @@ class PythonRecipeHandler(RecipeHandler):
         elif RecipeHandler.checkfiles(srctree, ['PKG-INFO']):
             info = self.get_pkginfo(os.path.join(srctree, 'PKG-INFO'))
 
-            if setup_info and 'Install-requires' in setup_info:
+            if setup_info:
+                if 'Install-requires' in setup_info:
                     info['Install-requires'] = setup_info['Install-requires']
+                if 'Extras-require' in setup_info:
+                    info['Extras-require'] = setup_info['Extras-require']
         else:
             if setup_info:
                 info = setup_info
