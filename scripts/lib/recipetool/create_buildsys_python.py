@@ -609,12 +609,13 @@ def gather_setup_info(fileobj):
     non_literals, extensions = {}, []
     for key, value in visitor.keywords.items():
         if key == 'ext_modules':
-            for ext in value:
-                if  (isinstance(ext, ast.Call) and
-                     isinstance(ext.func, ast.Name) and
-                     ext.func.id == 'Extension' and
-                     not has_non_literals(ext.args)):
-                    extensions.append(ext.args[0])
+            if isinstance(value, list):
+                for ext in value:
+                    if  (isinstance(ext, ast.Call) and
+                         isinstance(ext.func, ast.Name) and
+                         ext.func.id == 'Extension' and
+                         not has_non_literals(ext.args)):
+                        extensions.append(ext.args[0])
         elif has_non_literals(value):
             non_literals[key] = value
             del visitor.keywords[key]
