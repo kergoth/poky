@@ -31,6 +31,9 @@ import subprocess
 from recipetool.create import RecipeHandler
 
 logger = logging.getLogger('recipetool')
+suffixes = []
+for triple in imp.get_suffixes():
+    suffixes.append(triple[0])
 
 tinfoil = None
 
@@ -43,10 +46,13 @@ def tinfoil_init(instance):
 class PythonRecipeHandler(RecipeHandler):
     base_pkgdeps = ['python-core']
     excluded_pkgdeps = ['python-dbg']
+    excluded_provides = ['setup', 'ez_setup']
     # os.path is provided by python-core
-    assume_provided = ['builtins', 'os.path']
+    excluded_depends = ['builtins', 'os.path']
     # Assumes that the host python builtin_module_names is sane for target too
-    assume_provided = assume_provided + list(sys.builtin_module_names)
+    excluded_depends += list(sys.builtin_module_names)
+    # Bits we don't care about
+    excluded_depends += ['ez_setup']
 
     bbvar_map = {
         'Name': 'PN',
@@ -324,7 +330,7 @@ class PythonRecipeHandler(RecipeHandler):
             lines_after.append('RDEPENDS_${{PN}} += "{}"'.format(' '.join(sorted(mapped_deps))))
 
         unmapped_deps -= set(extensions)
-        unmapped_deps -= set(self.assume_provided)
+        unmapped_deps -= set(self.excluded_depends)
         if unmapped_deps:
             if mapped_deps:
                 lines_after.append('')
@@ -487,16 +493,61 @@ class PythonRecipeHandler(RecipeHandler):
 
             if 'Scripts' in setup_info:
                 to_scan.extend(setup_info['Scripts'])
+
+            for pos, path in enumerate(to_scan):
+                if not path:
+                    to_scan[pos] = '.'
+
+            logger.info("Scanning paths for packages & dependencies: %s", ', '.join(to_scan))
         else:
             logger.info("Scanning the entire source tree, as one or more of the following setup keywords are non-literal: py_modules, scripts, packages.")
 
         if not to_scan:
             to_scan = ['.']
 
-        logger.info("Scanning paths for packages & dependencies: %s", ', '.join(to_scan))
-
         provided_packages = self.parse_pkgdata_for_python_packages()
-        scanned_deps = self.scan_python_dependencies([os.path.join(srctree, p) for p in to_scan])
+        to_scan_abs = [os.path.join(srctree, p) for p in to_scan]
+
+        provides_cmd = ['find_python_modules', '-r', srctree]
+        if 'Package-dir' in setup_info:
+            for k, v in setup_info['Package-dir'].iteritems():
+                provides_cmd.append('-p')
+                provides_cmd.append('{}={}'.format(k, v))
+
+        scanned_deps = set()
+        try:
+            provides_output = self.run_command(provides_cmd + to_scan_abs)
+        except (OSError, subprocess.CalledProcessError) as exc:
+            logger.error("Failed to run provides cmd: %s" % exc)
+            pass
+        else:
+            provides_lines = (l.rstrip() for l in provides_output.splitlines())
+            provides = set()
+            for l in provides_lines:
+                package, entry, entry_path = l.split('\t')
+                if not os.path.exists(entry_path):
+                    continue
+
+                if entry == '__init__':
+                    ispkg = True
+                    provides.add(package)
+                elif package:
+                    provides.add(package + '.' + entry)
+                else:
+                    provides.add(entry)
+
+                if entry_path.endswith('.py'):
+                    with codecs.open(entry_path) as f:
+                        deps = self.get_code_depends(f.read(), entry_path, package + '.' + entry, False)
+                        for dep, fn in deps:
+                            scanned_deps.add(dep)
+
+            for excluded in self.excluded_provides:
+                if excluded in provides:
+                    provides.remove(excluded)
+
+            scanned_deps -= provides
+
         mapped_deps, unmapped_deps = set(self.base_pkgdeps), set()
         for dep in scanned_deps:
             mapped = provided_packages.get(dep)
@@ -506,30 +557,66 @@ class PythonRecipeHandler(RecipeHandler):
                 unmapped_deps.add(dep)
         return mapped_deps, unmapped_deps
 
-    def scan_python_dependencies(self, paths):
-        deps = set()
+    @staticmethod
+    def get_code_depends(code_string, path=None, provide=None, ispkg=False):
         try:
-            dep_output = self.run_command(['pythondeps', '-d'] + paths)
-        except (OSError, subprocess.CalledProcessError):
-            pass
+            code = ast.parse(code_string, path)
+        except TypeError as exc:
+            raise DependError(path, exc)
+        except SyntaxError as exc:
+            raise DependError(path, exc)
+
+        visitor = ImportVisitor()
+        visitor.visit(code)
+        for builtin_module in sys.builtin_module_names:
+            if builtin_module in visitor.imports:
+                visitor.imports.remove(builtin_module)
+
+        if provide:
+            provide_elements = provide.split('.')
+            if ispkg:
+                provide_elements.append("__self__")
+            context = '.'.join(provide_elements[:-1])
+            package_path = os.path.dirname(path)
         else:
-            for line in dep_output.splitlines():
-                line = line.rstrip()
-                dep, filename = line.split('\t', 1)
-                if filename.endswith('/setup.py'):
+            context = None
+            package_path = None
+
+        levelzero_importsfrom = (module for module, names, level in visitor.importsfrom
+                                 if level == 0)
+        for module in visitor.imports | set(levelzero_importsfrom):
+            if context and path:
+                module_basepath = os.path.join(package_path, module.replace('.', '/'))
+                if os.path.exists(module_basepath):
+                    # Implicit relative import
+                    yield context + '.' + module, path
                     continue
-                deps.add(dep)
 
-        try:
-            provides_output = self.run_command(['pythondeps', '-p'] + paths)
-        except (OSError, subprocess.CalledProcessError):
-            pass
-        else:
-            provides_lines = (l.rstrip() for l in provides_output.splitlines())
-            provides = set(l for l in provides_lines if l and l != 'setup')
-            deps -= provides
+                for suffix in suffixes:
+                    if os.path.exists(module_basepath + suffix):
+                        # Implicit relative import
+                        yield context + '.' + module, path
+                        break
+                else:
+                    yield module, path
+            else:
+                yield module, path
 
-        return deps
+        for module, names, level in visitor.importsfrom:
+            if level == 0:
+                continue
+            elif not provide:
+                raise DependError("Error: ImportFrom non-zero level outside of a package: {0}".format((module, names, level)), path)
+            elif level > len(provide_elements):
+                raise DependError("Error: ImportFrom level exceeds package depth: {0}".format((module, names, level)), path)
+            else:
+                context = '.'.join(provide_elements[:-level])
+                if module:
+                    if context:
+                        yield context + '.' + module, path
+                    else:
+                        yield module, path
+
 
     def parse_pkgdata_for_python_packages(self):
         suffixes = [t[0] for t in imp.get_suffixes()]
@@ -709,6 +796,29 @@ def has_non_literals(value):
         return any(has_non_literals(v) for v in value.itervalues())
     elif hasattr(value, '__iter__'):
         return any(has_non_literals(v) for v in value)
+
+
+class ImportVisitor(ast.NodeVisitor):
+    def __init__(self):
+        self.imports = set()
+        self.importsfrom = []
+
+    def visit_Import(self, node):
+        for alias in node.names:
+            self.imports.add(alias.name)
+
+    def visit_ImportFrom(self, node):
+        self.importsfrom.append((node.module, [a.name for a in node.names], node.level))
+
+
+class DependError(Exception):
+    def __init__(self, path, error):
+        self.path = path
+        self.error = error
+        Exception.__init__(self, error)
+
+    def __str__(self):
+        return "Failure determining dependencies of {}: {}".format(self.path, self.error)
 
 
 def plugin_init(pluginlist):
