@@ -26,7 +26,10 @@ deltask package
 
 SDK_DEPENDS += "patchelf-native"
 
-SDK_PACKAGING_FUNC = ""
+SDK_PACKAGING_FUNC = "sdk_package_noop"
+sdk_package_noop () {
+	:
+}
 
 fakeroot create_sdk_files() {
 	cp ${COREBASE}/scripts/relocate_sdk.py ${SDK_OUTPUT}/${SDKPATH}/
