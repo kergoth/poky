@@ -45,9 +45,14 @@ fakeroot create_sdk_files() {
 fakeroot tar_sdk() {
 	mkdir -p ${SDK_DEPLOY}
 	cd ${SDK_OUTPUT}/${SDKPATH}
-	mv sysroots/${SDK_SYS} ./${BUILD_SYS}
+	sdkmachine_build_sys="${@'${BUILD_SYS}'.replace('${BUILD_ARCH}-', '${SDK_ARCH}-')}"
+	if [ "${SDK_SYS}" != "$sdkmachine_build_sys" ]; then
+		mv sysroots/${SDK_SYS} ./$sdkmachine_build_sys
+	else
+		mv sysroots/${SDK_SYS} .
+	fi
 	rm sysroots -rf
-	patchelf --set-interpreter ${@''.join('a' for n in xrange(1024))} ./${BUILD_SYS}/usr/bin/patchelf
-	mv ./${BUILD_SYS}/usr/bin/patchelf ./${BUILD_SYS}/usr/bin/patchelf-uninative
+	patchelf --set-interpreter ${@''.join('a' for n in xrange(1024))} ./$sdkmachine_build_sys/usr/bin/patchelf
+	mv ./$sdkmachine_build_sys/usr/bin/patchelf ./$sdkmachine_build_sys/usr/bin/patchelf-uninative
 	tar ${SDKTAROPTS} -c -j --file=${SDK_DEPLOY}/${TOOLCHAIN_OUTPUTNAME}.tar.bz2 .
 }
