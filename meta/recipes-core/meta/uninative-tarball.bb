@@ -26,6 +26,10 @@ deltask package
 
 SDK_DEPENDS += "patchelf-native"
 
+# We don't need or want complementary packages for htis
+SDKIMAGE_FEATURES = ""
+IMAGE_LINGUAS = ""
+
 SDK_PACKAGING_FUNC = "sdk_package_noop"
 sdk_package_noop () {
 	:
