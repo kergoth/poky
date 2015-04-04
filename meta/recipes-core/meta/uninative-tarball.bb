@@ -21,9 +21,6 @@ EXCLUDE_FROM_WORLD = "1"
 inherit meta
 inherit populate_sdk
 
-deltask install
-deltask package
-
 SDK_DEPENDS += "patchelf-native"
 
 # We don't need or want complementary packages for htis
