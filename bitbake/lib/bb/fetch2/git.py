@@ -306,6 +306,11 @@ class Git(FetchMethod):
                     runfetchcmd("%s remote add origin %s" % (ud.basecmd, ud.clonedir), d)
                     for name, branch in ud.branches.iteritems():
                         runfetchcmd("%s fetch -a origin %s" % (ud.basecmd, branch), d)
+                        runfetchcmd("%s update-ref refs/remotes/origin/%s %s" % (ud.basecmd, branch, ud.revisions[name]), d)
+                    runfetchcmd("%s repack -Ad" % ud.basecmd, d)
+                    runfetchcmd("%s prune --expire now" % ud.basecmd, d)
+                    runfetchcmd("%s pack-redundant --all | xargs -r rm" % ud.basecmd, d)
+
                     repourl = self._get_repo_url(ud)
                     runfetchcmd("%s remote set-url origin %s" % (ud.basecmd, repourl), d)
                     logger.info("Creating tarball of git repository")
