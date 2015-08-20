@@ -31,14 +31,14 @@ WARN_QA ?= "ldflags useless-rpaths rpaths staticdev libdir xorg-driver-abi \
             installed-vs-shipped compile-host-path install-host-path \
             pn-overrides infodir build-deps file-rdeps \
             unknown-configure-option symlink-to-sysroot multilib \
-            invalid-pkgconfig \
+            invalid-pkgconfig host-user-contaminated \
             "
 ERROR_QA ?= "dev-so debug-deps dev-deps debug-files arch pkgconfig la \
             perms dep-cmp pkgvarcheck perm-config perm-line perm-link \
             split-strip packages-list pkgv-undefined var-undefined \
             version-going-backwards expanded-d \
             "
-FAKEROOT_QA = ""
+FAKEROOT_QA = "host-user-contaminated"
 FAKEROOT_QA[doc] = "QA tests which need to run under fakeroot. If any \
 enabled tests are listed here, the do_package_qa task will run under fakeroot."
 
@@ -949,6 +949,34 @@ def package_qa_check_expanded_d(path,name,d,elf,messages):
                         messages["expanded-d"] = "%s in %s recipe contains ${D}, it should be replaced by $D instead" % (var, pak)
                         sane = False
     return sane
+
+HOST_USER_UID := "${@os.getuid()}"
+HOST_USER_GID := "${@os.getgid()}"
+
+QAPATHTEST[host-user-contaminated] = "package_qa_check_host_user"
+def package_qa_check_host_user(path, name, d, elf, messages):
+    """Check for paths outside of /home which are owned by the user running bitbake."""
+
+    if not os.path.lexists(path):
+        return
+
+    check_uid = int(d.getVar('HOST_USER_UID', True))
+    check_gid = int(d.getVar('HOST_USER_GID', True))
+
+    dest = d.getVar('PKGDEST', True)
+    home = os.path.join(dest, 'home')
+    if path == home or path.startswith(home + os.sep):
+        return
+
+    stat = os.lstat(path)
+    if stat.st_uid == check_uid:
+        messages["host-user-contaminated"] = "%s is owned by uid %d, which is the same as the user running bitbake. This may be due to host contamination" % (path, check_uid)
+        return False
+
+    if stat.st_gid == check_gid:
+        messages["host-user-contaminated"] = "%s is owned by gid %d, which is the same as the user running bitbake. This may be due to host contamination" % (path, check_gid)
+        return False
+    return True
 
 # The PACKAGE FUNC to scan each package
 python do_package_qa () {
