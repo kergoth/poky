@@ -349,11 +349,12 @@ class Git(FetchMethod):
             shallow_branches = []
             for name, (shallow, revision, branch) in branchinfo.iteritems():
                 if nobranch:
-                    runfetchcmd("%s update-ref refs/shallow/%s %s" % (gitcmd, name, revision), d)
-                    shallow_branches.append('refs/shallow/%s' % name)
+                    ref = "refs/shallow/%s" % name
                 else:
-                    runfetchcmd("%s update-ref refs/remotes/origin/%s %s" % (gitcmd, branch, revision), d)
-                    shallow_branches.append("origin/%s" % branch)
+                    ref = "refs/remotes/origin/%s" % name
+
+                shallow_branches.append(ref)
+                runfetchcmd("%s update-ref %s %s" % (gitcmd, ref, revision), d)
 
         git_dir = runfetchcmd('%s rev-parse --git-dir' % gitcmd, d).rstrip()
         self._make_repo_shallow(shallow_revisions, git_dir, gitcmd, d, branches=shallow_branches)
