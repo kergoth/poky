@@ -66,10 +66,12 @@ python __anonymous() {
 
 S = "${WORKDIR}/git"
 
-inherit autotools pkgconfig update-rc.d update-alternatives
+inherit autotools pkgconfig update-rc.d update-alternatives systemd
 
 ALTERNATIVE_PRIORITY = "100"
 ALTERNATIVE_LINK_NAME[psplash] = "${bindir}/psplash"
+
+SYSTEMD_SERVICE_${PN} = "psplash-start.service psplash-quit.service"
 
 python do_compile () {
     import shutil
@@ -97,8 +99,15 @@ python do_compile () {
 
 do_install_append() {
 	install -d ${D}/mnt/.psplash/
-	install -d ${D}${sysconfdir}/init.d/
-	install -m 0755 ${WORKDIR}/psplash-init ${D}${sysconfdir}/init.d/psplash.sh
+	if ${@bb.utils.contains('DISTRO_FEATURES', 'sysvinit', 'true', 'false', d)}; then
+		install -d ${D}${sysconfdir}/init.d/
+		install -m 0755 ${WORKDIR}/psplash-init ${D}${sysconfdir}/init.d/psplash.sh
+	fi
+	if ${@bb.utils.contains('DISTRO_FEATURES', 'systemd', 'true', 'false', d)}; then
+		install -d ${D}${systemd_unitdir}/system
+		install -m 0644 ${WORKDIR}/psplash-quit.service ${D}${systemd_unitdir}/system
+		install -m 0644 ${WORKDIR}/psplash-start.service ${D}${systemd_unitdir}/system
+	fi
 	install -d ${D}${bindir}
 	for i in ${SPLASH_INSTALL} ; do
 		install -m 0755 $i ${D}${bindir}/$i
@@ -111,9 +120,8 @@ FILES_${PN} += "/mnt/.psplash"
 INITSCRIPT_NAME = "psplash.sh"
 INITSCRIPT_PARAMS = "start 0 S . stop 20 0 1 6 ."
 
-DEPENDS_append = " ${@bb.utils.contains('DISTRO_FEATURES','systemd','systemd-systemctl-native','',d)}"
 pkg_postinst_${PN} () {
-	if ${@bb.utils.contains('DISTRO_FEATURES','systemd','true','false',d)}; then
+	if ${@bb.utils.contains('DISTRO_FEATURES', 'systemd', 'true', 'false', d)}; then
 		if [ -n "$D" ]; then
 			OPTS="--root=$D"
 		fi
