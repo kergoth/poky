@@ -244,9 +244,11 @@ do_install() {
         ln -s Config_heavy.pl ${D}${libdir}/perl/${PV}/Config_heavy-target.pl
 }
 
+REL_PERLLIB = "${@os.path.relpath('${libdir}', '${bindir}')}/perl"
+
 do_install_append_class-nativesdk () {
         create_wrapper ${D}${bindir}/perl \
-            PERL5LIB='$PERL5LIB:$OECORE_NATIVE_SYSROOT/${libdir_nativesdk}/perl/site_perl/${PV}:$OECORE_NATIVE_SYSROOT/${libdir_nativesdk}/perl/vendor_perl/${PV}:$OECORE_NATIVE_SYSROOT/${libdir_nativesdk}/perl/${PV}'
+            PERL5LIB='$PERL5LIB:`dirname $realpath`/${REL_PERLLIB}/site_perl/${PV}:`dirname $realpath`/${REL_PERLLIB}/vendor_perl/${PV}:`dirname $realpath`/${REL_PERLLIB}/${PV}'
 }
 
 PACKAGE_PREPROCESS_FUNCS += "perl_package_preprocess"
