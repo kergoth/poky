@@ -12,6 +12,8 @@ PR = "r15"
 SRC_URI = "git://git.yoctoproject.org/${BPN} \
            file://0001-psplash-fb-Convert-psplash_fb_plot_pixel-to-a-static.patch \
            file://psplash-init \
+           file://psplash-start.service \
+           file://psplash-quit.service \
            ${SPLASH_IMAGES}"
 
 SPLASH_IMAGES = "file://psplash-poky-img.h;outsuffix=default"
