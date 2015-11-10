@@ -170,15 +170,23 @@ IMAGE_CMD_ubi () {
 
 IMAGE_CMD_ubifs = "mkfs.ubifs -r ${IMAGE_ROOTFS} -o ${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.rootfs.ubifs ${MKUBIFS_ARGS}"
 
+WKS_FILE ?= "${FILE_DIRNAME}/${IMAGE_BASENAME}.${MACHINE}.wks"
+WKS_FULL_PATH = "${@bb.utils.which('${WKS_SEARCH_PATH}', '${WKS_FILE}') if not os.path.isabs('${WKS_FILE}') else '${WKS_FILE}'}"
+WKS_FULL_PATH[vardepvalue] = "${WKS_FULL_PATH}"
+WKS_SEARCH_PATH ?= "${@':'.join('%s/scripts/lib/wic/canned-wks' % l for l in '${BBLAYERS}'.split())}"
+
 IMAGE_CMD_wic () {
-	out=${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}
-	wks=${FILE_DIRNAME}/${IMAGE_BASENAME}.${MACHINE}.wks
-	[ -e $wks ] || wks=${FILE_DIRNAME}/${IMAGE_BASENAME}.wks
-	[ -e $wks ] || bbfatal "Kiskstart file $wks doesn't exist"
-	BUILDDIR=${TOPDIR} wic create $wks --vars ${STAGING_DIR_TARGET}/imgdata/ -e ${IMAGE_BASENAME} -o $out/
-	mv $out/build/${IMAGE_BASENAME}*.direct $out.rootfs.wic
-	rm -rf $out/
+	out="${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}"
+	wks="${WKS_FULL_PATH}"
+	if [ ! -e "$wks" ]; then
+		bbfatal "Kickstart file $wks doesn't exist"
+	fi
+
+	BUILDDIR="${TOPDIR}" wic create "$wks" --vars "${STAGING_DIR_TARGET}/imgdata/" -e "${IMAGE_BASENAME}" -o "$out/"
+	mv "$out/build/$(basename "${wks%.wks}")"*.direct "$out.rootfs.wic"
+	rm -rf "$out/"
 }
+IMAGE_CMD_wic[file-checksums] += "${WKS_FULLPATH}"
 
 EXTRA_IMAGECMD = ""
 
