@@ -50,3 +50,8 @@ QEMU_EXTRAOPTIONS_ppc64e5500 = " -cpu e5500"
 QEMU_EXTRAOPTIONS_ppce6500 = " -cpu e6500"
 QEMU_EXTRAOPTIONS_ppc64e6500 = " -cpu e6500"
 QEMU_EXTRAOPTIONS_ppc7400   = " -cpu 7400"
+
+python () {
+    if "QEMU_EXTRAOPTIONS" in d and d.expand("QEMU_EXTRAOPTIONS_${PACKAGE_ARCH}") not in d and d.getVar("PACKAGE_ARCH", True) != "all":
+        bb.fatal("Incorrect use of overrides rather than PACKAGE_ARCH for QEMU_EXTRAOPTIONS")
+}
