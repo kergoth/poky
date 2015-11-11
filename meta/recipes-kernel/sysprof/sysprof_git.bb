@@ -23,7 +23,7 @@ S = "${WORKDIR}/git"
 inherit autotools pkgconfig
 
 PACKAGECONFIG ?= "${@bb.utils.contains_any('DISTRO_FEATURES', '${GTK2DISTROFEATURES}', 'gui', '', d)}"
-PACKAGECONFIG[gui] = "--enable-gui,--disable-gui,gtk+ libglade"
+PACKAGECONFIG[gui] = "--enable-gui,--disable-gui,gtk+ gdk-pixbuf pango libglade"
 
 # We do not yet work for aarch64.
 #
