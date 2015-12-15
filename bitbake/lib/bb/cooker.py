@@ -2084,15 +2084,18 @@ class CookerParser(object):
                      (exc.recipe, bb.exceptions.to_string(exc.realexception)))
             self.shutdown(clean=False)
             return False
-        except bb.parse.ParseError as exc:
+        except (bb.parse.ParseError, bb.data_smart.ExpansionError) as exc:
             self.error += 1
-            logger.error(str(exc))
-            self.shutdown(clean=False)
-            return False
-        except bb.data_smart.ExpansionError as exc:
-            self.error += 1
-            _, value, _ = sys.exc_info()
-            logger.error('ExpansionError during parsing %s: %s', value.recipe, str(exc))
+            import traceback
+
+            bbdir = os.path.dirname(__file__) + os.sep
+            exc_class, exc, tb = sys.exc_info()
+            for tb in iter(lambda: tb.tb_next, None):
+                # Skip frames in bitbake itself, we only want the metadata
+                fn, _, _, _ = traceback.extract_tb(tb, 1)[0]
+                if not fn.startswith(bbdir):
+                    break
+            parselog.critical("Unable to parse %s", fn, exc_info=(exc_class, exc, tb))
             self.shutdown(clean=False)
             return False
         except SyntaxError as exc:
