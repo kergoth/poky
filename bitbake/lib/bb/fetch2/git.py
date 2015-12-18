@@ -141,8 +141,10 @@ class Git(FetchMethod):
             raise bb.fetch2.ParameterError("The number of name and branch parameters is not balanced", ud.url)
 
         ud.shallow = d.getVar("BB_GIT_SHALLOW", True) == "1"
-        ud.shallow_all_branches = d.getVar("BB_GIT_SHALLOW_ALL_BRANCHES", True) == "1"
         ud.shallow_revs = (d.getVar("BB_GIT_SHALLOW_REVS", True) or "").split()
+        trim_refs = d.getVar("BB_GIT_SHALLOW_TRIM_REFS", True)
+        ud.trim_refs = not trim_refs or trim_refs == "0"
+
         depth_default = d.getVar("BB_GIT_SHALLOW_DEPTH", True)
         if depth_default is not None:
             try:
@@ -213,12 +215,12 @@ class Git(FetchMethod):
                 if depth:
                     tarballname = "%s-%s" % (tarballname, depth)
 
-            if ud.shallow_all_branches:
-                ud.shallowtarball = 'gitshallowall_%s.tar.gz' % tarballname
-            else:
+            if ud.trim_refs:
                 if not ud.nobranch:
                     tarballname = "%s_%s" % (tarballname, "_".join(sorted(ud.branches.itervalues())))
                 ud.shallowtarball = 'gitshallow_%s.tar.gz' % tarballname
+            else:
+                ud.shallowtarball = 'gitshallowall_%s.tar.gz' % tarballname
             ud.fullshallow = os.path.join(dl_dir, ud.shallowtarball)
             ud.mirrortarballs = [ud.shallowtarball, ud.mirrortarball]
 
@@ -315,7 +317,7 @@ class Git(FetchMethod):
                 try:
                     repourl = self._get_repo_url(ud)
                     branchinfo = dict((name, (ud.shallow_depths[name], ud.revisions[name], ud.branches[name])) for name in ud.names)
-                    self._populate_shallowclone(repourl, ud.clonedir, shallowclone, ud.basecmd, branchinfo, ud.nobranch, ud.shallow_all_branches, ud.shallow_revs, ud.bareclone, d)
+                    self._populate_shallowclone(repourl, ud.clonedir, shallowclone, ud.basecmd, branchinfo, ud.nobranch, ud.trim_refs, ud.shallow_revs, ud.bareclone, d)
 
                     logger.info("Creating tarball of git repository")
                     runfetchcmd("tar -czf %s %s" % (ud.fullshallow, os.path.join(".")), d)
@@ -330,7 +332,7 @@ class Git(FetchMethod):
             runfetchcmd("tar -czf %s %s" % (ud.fullmirror, os.path.join(".")), d)
             runfetchcmd("touch %s.done" % ud.fullmirror, d)
 
-    def _populate_shallowclone(self, repourl, source, dest, gitcmd, branchinfo, nobranch, shallow_all_branches, shallow_revisions, bareclone, d):
+    def _populate_shallowclone(self, repourl, source, dest, gitcmd, branchinfo, nobranch, trim_refs, shallow_revisions, bareclone, d):
         if shallow_revisions is None:
             shallow_revisions = []
 
@@ -357,9 +359,7 @@ class Git(FetchMethod):
         runfetchcmd("%s clone %s %s %s" % (gitcmd, cloneflags, source, dest), d)
 
         os.chdir(dest)
-        if shallow_all_branches:
-            shallow_branches = None
-        else:
+        if trim_refs:
             runfetchcmd("%s for-each-ref --format='%%(refname)' | xargs -n 1 %s update-ref -d --no-deref" % (gitcmd, gitcmd), d)
             shallow_branches = []
             for name, (depth, revision, branch) in branchinfo.iteritems():
@@ -370,6 +370,8 @@ class Git(FetchMethod):
 
                 shallow_branches.append(ref)
                 runfetchcmd("%s update-ref %s %s" % (gitcmd, ref, revision), d)
+        else:
+            shallow_branches = None
 
         git_dir = runfetchcmd('%s rev-parse --git-dir' % gitcmd, d).rstrip()
         self._make_repo_shallow(shallow_revisions, git_dir, gitcmd, d, branches=shallow_branches)
