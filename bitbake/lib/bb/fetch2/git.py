@@ -145,6 +145,7 @@ class Git(FetchMethod):
         ud.shallow_revs = (d.getVar("BB_GIT_SHALLOW_REVS", True) or "").split()
         trim_refs = d.getVar("BB_GIT_SHALLOW_TRIM_REFS", True)
         ud.trim_refs = not trim_refs or trim_refs == "0"
+        ud.shallow_extra_refs = (d.getVar("BB_GIT_SHALLOW_EXTRA_REFS", True) or "").split()
 
         depth_default = d.getVar("BB_GIT_SHALLOW_DEPTH", True)
         if depth_default is not None:
@@ -208,7 +209,7 @@ class Git(FetchMethod):
         if ud.shallow:
             tarballname = gitsrcname
             if ud.shallow_revs:
-                tarballname = "%s_%s" % (tarballname, "_".join(ud.shallow_revs))
+                tarballname = "%s_%s" % (tarballname, "_".join(sorted(ud.shallow_revs)))
 
             for name, revision in sorted(ud.revisions.iteritems()):
                 tarballname = "%s_%s" % (tarballname, ud.revisions[name][:7])
@@ -218,7 +219,9 @@ class Git(FetchMethod):
 
             if ud.trim_refs:
                 if not ud.nobranch:
-                    tarballname = "%s_%s" % (tarballname, "_".join(sorted(b.replace("/", "-") for b in ud.branches.itervalues())))
+                    shallow_refs = ud.branches.itervalues()
+                    shallow_refs = itertools.chain(shallow_refs, self.shallow_extra_refs)
+                    tarballname = "%s_%s" % (tarballname, "_".join(sorted(shallow_refs)))
                 ud.shallowtarball = 'gitshallow_%s.tar.gz' % tarballname
             else:
                 ud.shallowtarball = 'gitshallowall_%s.tar.gz' % tarballname
@@ -356,6 +359,7 @@ class Git(FetchMethod):
         os.chdir(dest)
 
         shallow_branches = []
+        shallow_branches.extend(self.shallow_extra_refs)
         for name, (depth, revision, branch) in branchinfo.iteritems():
             if nobranch:
                 ref = "refs/shallow/%s" % name
