@@ -337,21 +337,15 @@ class Git(FetchMethod):
             shallow_revisions = []
 
         # Map depths to revisions
-        for name, (depth, revision, branch) in branchinfo.iteritems():
+        to_parse = []
+        for depth, revision, branch in branchinfo.itervalues():
             if not depth:
                 continue
 
-            try:
-                shallow_revision = runfetchcmd("GIT_DIR=%s %s rev-parse %s^{}" % (source, gitcmd, depth), d).rstrip()
-            except bb.fetch2.FetchError:
-                try:
-                    depth = int(depth)
-                except ValueError:
-                    raise bb.fetch2.FetchError("Invalid BB_GIT_SHALLOW_DEPTH_%s: %s" % (name, depth))
-                else:
-                    shallow_revision = runfetchcmd("GIT_DIR=%s %s rev-parse %s~%d^{}" % (source, gitcmd, revision, depth - 1), d).rstrip()
+            to_parse.append('%s~%d^{}' % (revision, depth - 1))
 
-            shallow_revisions.append(shallow_revision)
+        parsed = runfetchcmd("GIT_DIR='%s' %s rev-parse %s" % (source, gitcmd, " ".join(to_parse)), d)
+        shallow_revisions.extend(parsed.splitlines())
 
         cloneflags = "-s -n"
         if bareclone:
