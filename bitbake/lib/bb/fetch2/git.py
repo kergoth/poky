@@ -217,7 +217,7 @@ class Git(FetchMethod):
 
             if ud.trim_refs:
                 if not ud.nobranch:
-                    tarballname = "%s_%s" % (tarballname, "_".join(sorted(ud.branches.itervalues())))
+                    tarballname = "%s_%s" % (tarballname, "_".join(sorted(b.replace("/", "-") for b in ud.branches.itervalues())))
                 ud.shallowtarball = 'gitshallow_%s.tar.gz' % tarballname
             else:
                 ud.shallowtarball = 'gitshallowall_%s.tar.gz' % tarballname
