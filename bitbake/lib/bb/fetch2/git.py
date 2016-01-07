@@ -71,6 +71,7 @@ import errno
 import itertools
 import os
 import re
+import subprocess
 import tempfile
 import bb
 from   bb    import data
@@ -353,22 +354,23 @@ class Git(FetchMethod):
         runfetchcmd("%s clone %s %s %s" % (gitcmd, cloneflags, source, dest), d)
 
         os.chdir(dest)
-        if trim_refs:
-            runfetchcmd("%s for-each-ref --format='%%(refname)' | xargs -n 1 %s update-ref -d --no-deref" % (gitcmd, gitcmd), d)
-            shallow_branches = []
-            for name, (depth, revision, branch) in branchinfo.iteritems():
-                if nobranch:
-                    ref = "refs/shallow/%s" % name
-                else:
-                    ref = "refs/remotes/origin/%s" % branch
 
+        shallow_branches = []
+        for name, (depth, revision, branch) in branchinfo.iteritems():
+            if nobranch:
+                ref = "refs/shallow/%s" % name
+            else:
+                ref = "refs/remotes/origin/%s" % branch
+
+            if trim_refs:
                 shallow_branches.append(ref)
-                runfetchcmd("%s update-ref %s %s" % (gitcmd, ref, revision), d)
-        else:
-            shallow_branches = None
+            runfetchcmd("%s update-ref %s %s" % (gitcmd, ref, revision), d)
+
+        if trim_refs:
+            self.filter_refs(gitcmd, d, shallow_branches)
 
         git_dir = runfetchcmd('%s rev-parse --git-dir' % gitcmd, d).rstrip()
-        self._make_repo_shallow(shallow_revisions, git_dir, gitcmd, d, branches=shallow_branches)
+        self._make_repo_shallow(shallow_revisions, git_dir, gitcmd, d, branches=shallow_branches or None)
 
         alternates_file = os.path.join(git_dir, "objects", "info", "alternates")
         os.unlink(alternates_file)
@@ -377,9 +379,7 @@ class Git(FetchMethod):
         if branches is not None:
             refs = branches
         else:
-            ref_output = runfetchcmd('%s for-each-ref --format="%%(refname)	%%(*objecttype)"' % gitcmd, d)
-            ref_split = (iter_extend(l.rstrip().rsplit('\t', 1), 2) for l in ref_output.splitlines())
-            refs = (ref for ref, objtype in ref_split if not objtype or objtype == 'commit')
+            refs = self.get_all_refs(gitcmd, d, lambda r, t: not t or t == 'commit')
 
         parsed_revs = runfetchcmd('%s rev-parse %s' % (gitcmd, ' '.join('%s^{}' % i for i in revisions)), d)
         queue = collections.deque(r.rstrip() for r in parsed_revs.splitlines())
@@ -414,6 +414,26 @@ class Git(FetchMethod):
         runfetchcmd('%s reflog expire --expire-unreachable=now --all' % gitcmd, d)
         runfetchcmd('%s repack -ad' % gitcmd, d)
         runfetchcmd('%s prune --expire now' % gitcmd, d)
+
+    @classmethod
+    def get_all_refs(cls, gitcmd, d, ref_filter=None):
+        """Return all the existing refs in this repository, optionally filtering the refs."""
+        ref_output = runfetchcmd('{} for-each-ref "--format=%(refname)" "%(*objecttype)"'.format(gitcmd), d)
+        ref_split = (tuple(iter_extend(l.rstrip().rsplit('\t', 1), 2)) for l in ref_output.splitlines())
+        if ref_filter:
+            ref_split = (e for e in ref_split if ref_filter(*e))
+        refs = [r for r, _ in ref_split]
+        return refs
+
+    @classmethod
+    def filter_refs(cls, gitcmd, d, refs):
+        """Remove all but the specified refs from the git repository."""
+        all_refs = cls.get_all_refs(gitcmd, d)
+        full_refs = runfetchcmd('%s rev-parse --symbolic-full-name %s' % (gitcmd, ' '.join(refs)), d).splitlines()
+        to_remove = set(all_refs) - set(full_refs)
+        if to_remove:
+            p = bb.process.Popen(['xargs', '-0', '-n', '1', 'git', 'update-ref', '-d', '--no-deref'], stderr=subprocess.PIPE)
+            p.communicate(''.join(l + '\0' for l in to_remove))
 
     def unpack(self, ud, destdir, d):
         """ unpack the downloaded src to destdir"""
