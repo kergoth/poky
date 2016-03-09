@@ -392,9 +392,7 @@ class DataSmart(MutableMapping):
                         raise
                 if s == olds:
                     break
-            except ExpansionError:
-                raise
-            except bb.parse.SkipRecipe:
+            except (ExpansionError, bb.BBHandledException, bb.parse.SkipRecipe):
                 raise
             except Exception as exc:
                 exc_class, exc, tb = sys.exc_info()
