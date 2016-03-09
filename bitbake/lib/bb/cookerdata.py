@@ -254,6 +254,8 @@ class CookerDataBuilder(object):
     def parseBaseConfiguration(self):
         try:
             self.parseConfigurationFiles(self.prefiles, self.postfiles)
+        except bb.BBHandledException:
+            raise
         except SyntaxError:
             raise bb.BBHandledException
         except bb.data_smart.ExpansionError as e:
