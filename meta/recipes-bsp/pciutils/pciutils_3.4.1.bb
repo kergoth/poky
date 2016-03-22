@@ -37,6 +37,7 @@ export PREFIX = "${prefix}"
 export SBINDIR = "${sbindir}"
 export SHAREDIR = "${datadir}"
 export MANDIR = "${mandir}"
+export LIBDIR = "${libdir}"
 
 EXTRA_OEMAKE = "-e MAKEFLAGS= ${PCI_CONF_FLAG}"
 

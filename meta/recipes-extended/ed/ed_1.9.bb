@@ -16,12 +16,20 @@ SRC_URI = "${GNU_MIRROR}/ed/ed-${PV}.tar.gz"
 SRC_URI[md5sum] = "565b6d1d5a9a8816b9b304fc4ed9405d"
 SRC_URI[sha256sum] = "d5b372cfadf073001823772272fceac2cfa87552c5cd5a8efc1c8aae61f45a88"
 
-EXTRA_OEMAKE = "-e MAKEFLAGS="
+EXTRA_OECONF = "\
+    'CC=${CC}' \
+    'CFLAGS=${CFLAGS}' \
+    'CPPFLAGS=${CPPFLAGS}' \
+    'LDFLAGS=${LDFLAGS}' \
+"
 
-inherit texinfo
+# ed uses a custom shell configure script, not autoconf, but it accepts the
+# usual arguments, such as those for target paths, so inherit the class to get
+# oe_runconf available
+inherit autotools texinfo
 
 do_configure() {
-	${S}/configure
+	oe_runconf
 }
 
 do_install() {

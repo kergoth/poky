@@ -40,8 +40,8 @@ do_compile () {
 }
 
 do_install () {
-        install -d ${D}/$exec_prefix ${D}${datadir}/zoneinfo
-        cp -pPR ${S}/$exec_prefix ${D}/
+        install -d ${D}/${exec_prefix} ${D}${datadir}/zoneinfo
+        cp -pPR ${S}/${exec_prefix} ${D}/
         # libc is removing zoneinfo files from package
         cp -pP "${S}/zone.tab" ${D}${datadir}/zoneinfo
         cp -pP "${S}/iso3166.tab" ${D}${datadir}/zoneinfo

@@ -42,6 +42,8 @@ EXTRA_OECONF += "ac_cv_path_SENDMAIL=/bin/true \
 
 inherit autotools-brokensep systemd update-rc.d
 
+EXTRA_OEMAKE += "'docdir=${docdir}'"
+
 INITSCRIPT_NAME = "atd"
 INITSCRIPT_PARAMS = "defaults"
 
@@ -53,7 +55,7 @@ copy_sources() {
 do_patch[postfuncs] += "copy_sources"
 
 do_install () {
-	oe_runmake -e "IROOT=${D}" install
+	oe_runmake "IROOT=${D}" install
 
 	install -d ${D}${sysconfdir}/init.d
 	install -m 0755    ${WORKDIR}/atd.init		${D}${sysconfdir}/init.d/atd

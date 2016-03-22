@@ -14,8 +14,7 @@ do_compile() {
 }
 
 do_install() {
-        oe_runmake install_hwlatdetect DESTDIR=${D} SBINDIR=${sbindir} \
-	           MANDIR=${mandir} INCLUDEDIR=${includedir}
+        oe_runmake install_hwlatdetect DESTDIR=${D}
 }
 
 FILES_${PN} += "${libdir}/python${PYTHON_BASEVERSION}/dist-packages/hwlatdetect.py"

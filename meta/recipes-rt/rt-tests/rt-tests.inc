@@ -11,3 +11,9 @@ CFLAGS += "-I${S}/src/include -D_GNU_SOURCE -Wall -Wno-nonnull"
 
 # calling 'uname -m' is broken on crossbuilds
 EXTRA_OEMAKE = "NUMA=0"
+
+EXTRA_OEMAKE += "\
+    'prefix=${prefix}' \
+    'bindir=${bindir}' \
+    'mandir=${mandir}' \
+"
