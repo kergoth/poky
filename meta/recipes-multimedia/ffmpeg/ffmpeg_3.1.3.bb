@@ -28,7 +28,7 @@ PROVIDES = "libav libpostproc"
 
 DEPENDS = "alsa-lib zlib libogg yasm-native"
 
-inherit autotools pkgconfig
+inherit pkgconfig
 
 PACKAGECONFIG ??= "avdevice avfilter avcodec avformat swresample swscale postproc \
                    bzlib gpl lzma theora x264 \
@@ -96,8 +96,14 @@ EXTRA_OECONF = " \
     ${EXTRA_FFCONF} \
 "
 
+B = "${WORKDIR}/build"
+
 do_configure() {
     ${S}/configure ${EXTRA_OECONF}
+}
+
+do_install() {
+    oe_runmake 'DESTDIR=${D}' install
 }
 
 PACKAGES_DYNAMIC += "^lib(av(codec|device|filter|format|util|resample)|swscale|swresample|postproc).*"
