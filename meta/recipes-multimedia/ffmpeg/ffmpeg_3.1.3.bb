@@ -67,6 +67,14 @@ PACKAGECONFIG[xv] = "--enable-outdev=xv,--disable-outdev=xv,libxv"
 USE_NONFREE = "${@bb.utils.contains_any('PACKAGECONFIG', [ 'faac', 'openssl' ], 'yes', '', d)}"
 
 EXTRA_OECONF = " \
+    --prefix=${prefix} \
+    --bindir=${bindir} \
+    --datadir=${datadir}/ffmpeg \
+    --docdir=${docdir} \
+    --incdir=${includedir} \
+    --libdir=${libdir} \
+    --mandir=${mandir} \
+    --shlibdir=${libdir} \
     --disable-stripping \
     --enable-pic \
     --enable-shared \
@@ -86,9 +94,6 @@ EXTRA_OECONF = " \
     --sysroot="${STAGING_DIR_TARGET}" \
     --enable-hardcoded-tables \
     ${EXTRA_FFCONF} \
-    --libdir=${libdir} \
-    --shlibdir=${libdir} \
-    --datadir=${datadir}/ffmpeg \
 "
 
 do_configure() {
