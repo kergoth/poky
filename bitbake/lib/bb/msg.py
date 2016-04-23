@@ -84,18 +84,22 @@ class BBLogFormatter(logging.Formatter):
 
     def format(self, record):
         record.levelname = self.getLevelName(record.levelno)
+
+        if hasattr(record, 'bb_exc_formatted'):
+            if not record.exc_text:
+                record.exc_text = ''.join(record.bb_exc_formatted)
+        elif hasattr(record, 'bb_exc_info'):
+            if not record.exc_text:
+                etype, value, tb = record.bb_exc_info
+                formatted = bb.exceptions.format_exception(etype, value, tb, limit=5)
+                record.exc_text = ''.join(formatted)
+
         if record.levelno == self.PLAIN:
             msg = record.getMessage()
         else:
             if self.color_enabled:
                 record = self.colorize(record)
             msg = logging.Formatter.format(self, record)
-        if hasattr(record, 'bb_exc_formatted'):
-            msg += '\n' + ''.join(record.bb_exc_formatted)
-        elif hasattr(record, 'bb_exc_info'):
-            etype, value, tb = record.bb_exc_info
-            formatted = bb.exceptions.format_exception(etype, value, tb, limit=5)
-            msg += '\n' + ''.join(formatted)
         return msg
 
     def colorize(self, record):
