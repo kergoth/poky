@@ -220,6 +220,30 @@ build results (as the layer priority order has effectively changed).
                 recipefile.write('##### bbappended from %s #####\n' % self.get_file_layer(appendname))
                 recipefile.writelines(appendfile.readlines())
 
+    def do_sort_layers(self, args):
+        """Sort configured layers by layer priority."""
+        layer_priorities = {}
+
+        for layer, _, _, pri in self.tinfoil.cooker.recipecache.bbfile_config_priorities:
+            layerdir = self.bbfile_collections.get(layer, None)
+            layer_priorities[layerdir] = pri
+
+        bblayers = list(sorted(layer_priorities, key=lambda l: layer_priorities[l], reverse=True))
+
+        def set_first_bblayers_only(varname, origvalue, op, newlines):
+            if bblayers:
+                newvalue = list(bblayers)
+                del bblayers[:]
+                return newvalue, '=', 2, False
+            else:
+                return None, None, 2, False
+
+        bblayers_conf = os.path.join('conf', 'bblayers.conf')
+        if not os.path.exists(bblayers_conf):
+            sys.stderr.write("Unable to find bblayers.conf\n")
+            return 1
+        bb.utils.edit_metadata_file(bblayers_conf, ['BBLAYERS'], set_first_bblayers_only)
+
     def register_commands(self, sp):
         parser_add_layer = self.add_command(sp, 'add-layer', self.do_add_layer, parserecipes=False)
         parser_add_layer.add_argument('layerdir', help='Layer directory to add')
@@ -231,3 +255,5 @@ build results (as the layer priority order has effectively changed).
         parser_flatten = self.add_command(sp, 'flatten', self.do_flatten)
         parser_flatten.add_argument('layer', nargs='*', help='Optional layer(s) to flatten (otherwise all are flattened)')
         parser_flatten.add_argument('outputdir', help='Output directory')
+
+        self.add_command(sp, 'sort-layers', self.do_sort_layers, parserecipes=False)
