@@ -1,3 +1,5 @@
+import argparse
+import collections
 import fnmatch
 import logging
 import os
@@ -12,6 +14,34 @@ logger = logging.getLogger('bitbake-layers')
 
 def plugin_init(plugins):
     return ActionPlugin()
+
+
+class LayerNotFound(Exception):
+    def __init__(self, name, parseerrors=None):
+        self.name = name
+        self.parseerrors = parseerrors
+
+    def __repr__(self):
+        return '{0.__class__.__name__}({0.name!r}, {0.parseerrors!r})'.format(self)
+
+    def __str__(self):
+        msg = 'Layer not found with name "{0.name}"'.format(self)
+        if self.parseerrors:
+            msg += '. Parse errors occurred:\n{0}'.format(''.join('  {0}: {1}\n'.format(lconf, err) for lconf, err in self.parseerrors))
+        return msg
+
+
+class DuplicateLayers(Exception):
+    def __init__(self, name, paths):
+        self.name = name
+        self.paths = paths
+
+    def __repr__(self):
+        return '{0.__class__.__name__}({0.name!r}, {0.paths!r})'.format(self)
+
+    def __str__(self):
+        path_lines = ''.join('  %s\n' % p for p in self.paths)
+        return 'Duplicate layers with name "{0.name}":\n{1}'.format(self, path_lines)
 
 
 class ActionPlugin(LayerPlugin):
@@ -244,6 +274,97 @@ build results (as the layer priority order has effectively changed).
             return 1
         bb.utils.edit_metadata_file(bblayers_conf, ['BBLAYERS'], set_first_bblayers_only)
 
+    def find_layers(self, patternstring):
+        """Return the layers for a given patternstring."""
+        import glob
+
+        patternstring = self.tinfoil.config_data.expand(patternstring)
+        for pattern in patternstring.split():
+            for lconf in glob.glob(os.path.join(pattern, 'conf', 'layer.conf')):
+                lconf = os.path.realpath(lconf)
+                layerdir = os.path.dirname(os.path.dirname(lconf))
+                yield lconf, layerdir
+
+    def get_layers_by_name(self, patternstring):
+        """Return a mapping of layer name to layer path.
+
+        Prefer those already in BBLAYERS to those which are found on disk.
+        The layer name is the name defined in BBFILE_COLLECTIONS.
+        """
+        by_name, configured = collections.defaultdict(set), []
+        varhistory = self.tinfoil.config_data.varhistory
+        layer_filemap = varhistory.get_variable_items_files('BBFILE_COLLECTIONS', self.tinfoil.config_data)
+        for item, filename in layer_filemap.iteritems():
+            by_name[item].add(os.path.dirname(os.path.dirname(filename)))
+            configured.append(item)
+
+        data, errors = bb.data.init(), []
+        bb.parse.init_parser(data)
+        for lconf, layerdir in sorted(self.find_layers(patternstring)):
+            ldata = data.createCopy()
+            ldata.setVar('LAYERDIR', layerdir)
+            try:
+                ldata = bb.parse.handle(lconf, ldata, include=True)
+            except BaseException as exc:
+                errors.append([lconf, exc])
+                continue
+
+            names = (ldata.getVar('BBFILE_COLLECTIONS', True) or '').split()
+            if not names:
+                names = [os.path.basename(layerdir)]
+
+            if any(name in configured for name in names):
+                # Prioritize layers already in BBLAYERS
+                continue
+
+            for name in names:
+                by_name[name].add(layerdir)
+
+        return by_name, errors
+
+    def find_layers_by_name(self, names, patternstring):
+        by_name, errors = self.get_layers_by_name(patternstring)
+        for name in names:
+            layerdirs = by_name.get(name)
+            if not layerdirs:
+                raise LayerNotFound(name, errors)
+            elif len(layerdirs) > 1:
+                raise DuplicateLayers(name, layerdirs)
+            else:
+                layerdir = next(iter(layerdirs))
+                yield name, layerdir
+
+    def do_find_layer_by_name(self, args):
+        """find the layer(s) for a given layer name, using a specific list of layers/wildcards to search"""
+        try:
+            for name, layerdir in self.find_layers_by_name(args.names, args.search_globs):
+                logger.plain(layerdir)
+        except LayerNotFound as exc:
+            logger.error(str(exc))
+            if exc.parseerrors:
+                return 2
+            else:
+                return 1
+        except DuplicateLayers as exc:
+            logger.error(str(exc))
+            return 3
+
+    def do_find_layer_with_path(self, args):
+        """find the layers which contain a specified path, using a specific list of layers/wildcards to search"""
+        layers = collections.defaultdict(list)
+        for lconf, layerdir in self.find_layers(args.search_globs):
+            for path in args.paths:
+                if os.path.exists(os.path.join(layerdir, path)):
+                    layers[path].append(layerdir)
+
+        for path in args.paths:
+            if path in layers:
+                for layer in layers[path]:
+                    logger.plain(layer)
+            else:
+                logger.error('Failed to find layers including "%s"', path)
+                return 1
+
     def register_commands(self, sp):
         parser_add_layer = self.add_command(sp, 'add-layer', self.do_add_layer, parserecipes=False)
         parser_add_layer.add_argument('layerdir', help='Layer directory to add')
@@ -257,3 +378,12 @@ build results (as the layer priority order has effectively changed).
         parser_flatten.add_argument('outputdir', help='Output directory')
 
         self.add_command(sp, 'sort-layers', self.do_sort_layers, parserecipes=False)
+
+        find_common = argparse.ArgumentParser(add_help=False)
+        find_common.add_argument('-g', '--search-globs', default='* */* ${COREBASE}/../* ${COREBASE}/../*/*', help='Space-separated list of layers to search (default: %(default)s)')
+
+        find_layer_by_name = self.add_command(sp, 'find-layer-by-name', self.do_find_layer_by_name, parents=[find_common], parserecipes=False)
+        find_layer_by_name.add_argument('names', nargs='+', metavar='NAME', help='Layer names (as specified in layer.conf, in BBFILE_COLLECTIONS)')
+
+        find_layer_by_path = self.add_command(sp, 'find-layer-with-path', self.do_find_layer_with_path, parents=[find_common], parserecipes=False)
+        find_layer_by_path.add_argument('paths', nargs='+', metavar='PATH', help='Path to find')
