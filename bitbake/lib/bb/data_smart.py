@@ -857,17 +857,20 @@ class DataSmart(MutableMapping):
 
         return data
 
-    def expandVarref(self, variable, parents=False):
+    def expandVarref(self, variable, parents=False, keys=None, value=None):
         """Find all references to variable in the data and expand it
            in place, optionally descending to parent datastores."""
 
-        if parents:
-            keys = iter(self)
-        else:
-            keys = self.localkeys()
+        if keys is None:
+            if parents:
+                keys = iter(self)
+            else:
+                keys = self.localkeys()
+
+        if value is None:
+            value = self.getVar(variable, False)
 
         ref = '${%s}' % variable
-        value = self.getVar(variable, False)
         for key in keys:
             referrervalue = self.getVar(key, False)
             if referrervalue and ref in referrervalue:
