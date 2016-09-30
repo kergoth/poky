@@ -965,4 +965,8 @@ class DataSmart(MutableMapping):
                     data.update({i:value})
 
         data_str = str([(k, data[k]) for k in sorted(data.keys())])
-        return hashlib.md5(data_str.encode("utf-8")).hexdigest()
+        md5hash = hashlib.md5(data_str.encode("utf-8")).hexdigest()
+        with open('/tmp/bbconfig.%s' % md5hash, 'w') as f:
+            for k in sorted(data.keys()):
+                f.write('%s = "%s"\n' % (k, data[k]))
+        return md5hash
